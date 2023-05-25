@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{rc::Rc, path::PathBuf, thread::JoinHandle};
 
-use crate::{records::{Panel, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, RecordStorage, GameTypeStorage, ItemTypeStorage, ItemStorage}, modals::{KeySignModal, ParcelSignModal, GameSignModal, AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ItemSignModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError}, modals::{KeySignModal, ParcelSignModal, GameSignModal, AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ItemSignModal, ExportModal, AboutModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 pub const NAME_MAX_LENGTH: usize = 256;
 pub const STUDENT_NUMBER_LENGTH: usize = 9;
@@ -8,18 +8,17 @@ pub const STAFF_NUMBER_LENGTH: usize = 8;
 pub const MAX_QUANTITY: i64 = 99;
 pub const DATE_TIME_FORMAT: &str = "%d/%m/%y %H:%M";
 pub const BACKUP_DATE_TIME_FORMAT: &str = "%Y-%m-%d_%H-%M-%S.%f";
+pub const PAGE_SIZE: i64 = 100;
 
 pub struct App {
-    current_panel: Panel,
+    current_panel: RecordType,
 
     db_dir: std::path::PathBuf,
 
-    file_save_handle: Option<std::thread::JoinHandle<Option<String>>>,
+    file_save_handle: Option<JoinHandle<Option<PathBuf>>>,
+    export_handle: Option<JoinHandle<(RecordType, Option<PathBuf>)>>,
     // file_load_handle: Option<std::thread::JoinHandle<Option<String>>>,
     
-    file_save_path: Option<String>,
-    // file_load_path: Option<String>,
-
     key_types: KeyTypeStorage,
     game_types: GameTypeStorage,
     item_types: ItemTypeStorage,
@@ -28,6 +27,11 @@ pub struct App {
     parcel_records: ParcelStorage,
     game_records: GameStorage,
     item_records: ItemStorage,
+    
+    key_panel: KeyPanel,
+    parcel_panel: ParcelPanel,
+    game_panel: GamePanel,
+    item_panel: ItemPanel,
 
     key_sign_modal: Option<KeySignModal>,
     parcel_sign_modal: Option<ParcelSignModal>,
@@ -40,6 +44,8 @@ pub struct App {
 
     alert_modal: Option<AlertModal>,
     exit_modal: Option<ExitModal>,
+    export_modal: Option<ExportModal>,
+    about_modal: Option<AboutModal>,
 }
 
 impl Default for App {
@@ -51,58 +57,54 @@ impl Default for App {
         let db_dir = db_dir.join("db.sqlite");
 
         let connection = Rc::new(sqlite::open(&db_dir).unwrap());
-        
-        let key_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='keys';").unwrap().into_iter().count() > 0;
-        let game_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='games';").unwrap().into_iter().count() > 0;
-        let item_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='items';").unwrap().into_iter().count() > 0;
-        let key_record_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='key_records';").unwrap().into_iter().count() > 0;
-        let parcel_record_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='parcel_records';").unwrap().into_iter().count() > 0;
-        let game_record_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='game_records';").unwrap().into_iter().count() > 0;
-        let item_record_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='item_records';").unwrap().into_iter().count() > 0;
 
-        if !key_table_exists {
-            connection.execute("CREATE TABLE keys (
-                key VARCHAR(512) PRIMARY KEY
+        let migrations_table_exists = connection.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='migrations';").unwrap().into_iter().count() > 0;
+        
+        // Create migrations table
+        if !migrations_table_exists {
+            connection.execute("CREATE TABLE migrations (
+                migration INTEGER PRIMARY KEY
             )").unwrap();
         }
 
-        if !game_table_exists {
-            connection.execute("CREATE TABLE games (
+        // NEVER remove an item from this array, unless you are 100% sure you are using an empty DB, rather create another query later which undoes it
+        let migrations = vec![
+            // Create key type table
+            "CREATE TABLE keys (
+                key VARCHAR(512) PRIMARY KEY
+            )",
+            // Create game type table
+            "CREATE TABLE games (
                 game VARCHAR(512) PRIMARY KEY,
                 quantity INTEGER NOT NULL
-            )").unwrap();
-        }
-
-        if !item_table_exists {
-            connection.execute("CREATE TABLE items (
+            )",
+            // Create item type table
+            "CREATE TABLE items (
                 item VARCHAR(512) PRIMARY KEY
-            )").unwrap();
-        }
-
-        if !key_record_table_exists {
-            connection.execute("CREATE TABLE key_records (
+            )",
+            // Create key record table
+            "CREATE TABLE key_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 key VARCHAR(512) NOT NULL,
                 student_name VARCHAR(512) NOT NULL,
                 student_number VARCHAR(9) NOT NULL,
                 receptionist VARCHAR(512) NOT NULL,
                 time_out VARCHAR(64) NOT NULL,
-                time_in VARCHAR(64)
-            )").unwrap();
-        }
-
-        if !parcel_record_table_exists {
-            connection.execute("CREATE TABLE parcel_records (
+                time_in VARCHAR(64),
+                notes VARCHAT(512) NOT NULL
+            )",
+            // Create parcel record table
+            "CREATE TABLE parcel_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 parcel_desc VARCHAR(512) NOT NULL,
                 student_name VARCHAR(512) NOT NULL,
                 receptionist VARCHAR(512) NOT NULL,
-                time_in VARCHAR(64) NOT NULL
-            )").unwrap();
-        }
-
-        if !game_record_table_exists {
-            connection.execute("CREATE TABLE game_records (
+                time_in VARCHAR(64) NOT NULL,
+                time_out VARCHAR(64),
+                notes VARCHAT(512) NOT NULL
+            )",
+            // Create game record table
+            "CREATE TABLE game_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 game VARCHAR(512) NOT NULL,
                 quantity INTEGER NOT NULL,
@@ -110,32 +112,50 @@ impl Default for App {
                 student_number VARCHAR(9) NOT NULL,
                 receptionist VARCHAR(512) NOT NULL,
                 time_out VARCHAR(64) NOT NULL,
-                time_in VARCHAR(64)
-            )").unwrap();
-        }
-
-        if !item_record_table_exists {
-            connection.execute("CREATE TABLE item_records (
+                time_in VARCHAR(64),
+                notes VARCHAT(512) NOT NULL
+            )",
+            // Create item record table
+            "CREATE TABLE item_records (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 item VARCHAR(512) NOT NULL,
                 quantity INTEGER NOT NULL,
                 student_name VARCHAR(512) NOT NULL,
                 student_number VARCHAR(9) NOT NULL,
                 receptionist VARCHAR(512) NOT NULL,
-                time_out VARCHAR(64) NOT NULL
-            )").unwrap();
+                time_out VARCHAR(64) NOT NULL,
+                notes VARCHAT(512) NOT NULL
+            )",
+        ];
+
+        for (i, migration) in migrations.iter().enumerate() {
+            let already_done = {
+                let mut stmt = connection.prepare("SELECT migration FROM migrations WHERE migration = ?;").unwrap();
+                stmt.bind(&[i as i64][..]).unwrap();
+                
+                stmt.iter().map(|row| row.unwrap()).count() > 0
+            };
+
+            if !already_done {
+                // Perform migration
+                connection.execute(migration).unwrap();
+                
+                // Record migration
+                let mut stmt = connection.prepare("INSERT INTO migrations (migration) VALUES (?)").unwrap();
+                stmt.bind(&[i as i64][..]).unwrap();
+                
+                while let Ok(sqlite::State::Row) = stmt.next() {}
+            }
         }
 
         Self {
             // connection: Rc::clone(&connection),
             
-            current_panel: Panel::KeyPanel,
+            current_panel: RecordType::Key,
 
             file_save_handle: None,
+            export_handle: None,
             // file_load_handle: None,
-            
-            file_save_path: None,
-            // file_load_path: None,
 
             db_dir,
 
@@ -143,6 +163,11 @@ impl Default for App {
             game_types: GameTypeStorage::new(Rc::clone(&connection)).unwrap(),
             // item_types: ItemTypeStorage::new(Rc::clone(&connection)).unwrap(),
             item_types: ItemTypeStorage::new(Rc::clone(&connection)).unwrap(),
+
+            key_panel: KeyPanel::default(),
+            parcel_panel: ParcelPanel::default(),
+            game_panel: GamePanel::default(),
+            item_panel: ItemPanel::default(),
 
             key_records: KeyStorage::new(Rc::clone(&connection)).unwrap(),
             parcel_records: ParcelStorage::new(Rc::clone(&connection)).unwrap(),
@@ -160,6 +185,8 @@ impl Default for App {
 
             alert_modal: None,
             exit_modal: None,
+            export_modal: None,
+            about_modal: None,
         }
     }
 }
@@ -187,18 +214,48 @@ impl eframe::App for App {
         if let Some(file_save_handle) = &self.file_save_handle {
             if file_save_handle.is_finished() {
                 let handle = self.file_save_handle.take().unwrap();
-                self.file_save_path = handle.join().unwrap();
+
+                if let Some(file_save_path) = handle.join().unwrap() {
+                    std::fs::copy(&self.db_dir, file_save_path).unwrap();
+                    
+                    println!("Saving database backup");
+                    
+                    self.alert_modal = Some(AlertModal { title: "Backup Successful".into(), description: None });
+                }
             }
         }
+        
+        // Export file location thread running separately.
+        if let Some(export_handle) = &self.export_handle {
+            if export_handle.is_finished() {
+                let handle = self.export_handle.take().unwrap();
 
-        if let Some(file_save_path) = &self.file_save_path {
-            std::fs::copy(&self.db_dir, file_save_path).unwrap();
-            
-            println!("Saving database backup");
-            
-            self.file_save_path = None;
+                if let (record_type, Some(export_path)) = handle.join().unwrap() {
+                    let result = match record_type {
+                        RecordType::Key => self.key_records.export_csv(export_path),
+                        RecordType::Parcel => self.parcel_records.export_csv(export_path),
+                        RecordType::Game => self.game_records.export_csv(export_path),
+                        RecordType::Item => self.item_records.export_csv(export_path),
+                    };
 
-            self.alert_modal = Some(AlertModal { title: "Backup Successful".into(), description: None });
+                    println!("Exporting records");
+
+                    match result {
+                        Ok(_) => {
+                            self.alert_modal = Some(AlertModal { title: "Export Successful".into(), description: None });
+                        },
+                        Err(err) => {
+                            self.alert_modal = Some(AlertModal {
+                                title: "Export Failed".into(),
+                                description: match err {
+                                    StorageError::PreparedStatementError(_) => Some("An expected error occurred while accessing the local database.".into()),
+                                    StorageError::ExportError(_) => Some("Unable to export data to specified file path.".into()),
+                                }
+                            });
+                        },
+                    }
+                }
+            }
         }
 
         // Exit Modal
@@ -216,6 +273,25 @@ impl eframe::App for App {
 
             if close_modal {
                 self.alert_modal = None;
+            }
+        }
+
+        // Export Modal
+        if let Some(modal) = &mut self.export_modal {
+            let close_modal = modal.render(ctx);
+
+            if close_modal {
+                self.export_handle = modal.export_handle.take();
+                self.export_modal = None;
+            }
+        }
+
+        // About Modal
+        if let Some(modal) = &mut self.about_modal {
+            let close_modal = modal.render(ctx);
+
+            if close_modal {
+                self.about_modal = None;
             }
         }
 
@@ -255,7 +331,7 @@ impl eframe::App for App {
                                 rfd::FileDialog::new()
                                     .add_filter("Sqlite DB Backup", &["sqlite"])
                                     .set_file_name(&format!("backup_{}.sqlite", chrono::Local::now().format(BACKUP_DATE_TIME_FORMAT).to_string()))
-                                    .save_file().map(|path| path.display().to_string())
+                                    .save_file()
                             }));
                             ui.close_menu();
                         }
@@ -264,6 +340,10 @@ impl eframe::App for App {
                         //         rfd::FileDialog::new().pick_file().map(|path| path.display().to_string())
                         //     }));
                         // }
+                        if ui.button("Export Records").clicked() {
+                            self.export_modal = Some(ExportModal::default());
+                            ui.close_menu();
+                        }
                         if ui.button("Edit Keys").clicked() {
                             self.key_entry_modal = Some(KeyEntryModal::default());
                             ui.close_menu();
@@ -276,6 +356,10 @@ impl eframe::App for App {
                             self.item_entry_modal = Some(ItemEntryModal::default());
                             ui.close_menu();
                         }
+                        if ui.button("About").clicked() {
+                            self.about_modal = Some(AboutModal::default());
+                            ui.close_menu();
+                        }
                         if ui.button("Quit").clicked() {
                             self.exit_modal = Some(ExitModal::default());
                             ui.close_menu();
@@ -285,53 +369,53 @@ impl eframe::App for App {
 
                 ui.separator();
     
-                ui.heading("Blackcurrant");
+                ui.heading("Blackcurrant RMS");
 
                 ui.separator();
 
                 ui.vertical_centered_justified(|ui| {
                     if ui.button("Keys").clicked() {
-                        self.current_panel = Panel::KeyPanel;
+                        self.current_panel = RecordType::Key;
                         self.key_records.refresh().unwrap();
                     }
                     if ui.button("Parcels").clicked() {
-                        self.current_panel = Panel::ParcelPanel;
+                        self.current_panel = RecordType::Parcel;
                         self.parcel_records.refresh().unwrap();
                     }
                     if ui.button("Games").clicked() {
-                        self.current_panel = Panel::GamePanel;
+                        self.current_panel = RecordType::Game;
                         self.game_records.refresh().unwrap();
                     }
                     if ui.button("Items").clicked() {
-                        self.current_panel = Panel::ItemPanel;
+                        self.current_panel = RecordType::Item;
                         self.item_records.refresh().unwrap();
                     }
                 });
             });
         
         match self.current_panel {
-            Panel::KeyPanel => {
+            RecordType::Key => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        KeyPanel::render(ctx, ui, &mut self.key_sign_modal, &self.key_types, &mut self.key_records);
+                        self.key_panel.render(ctx, ui, &mut self.key_sign_modal, &self.key_types, &mut self.key_records);
                     });
             },
-            Panel::ParcelPanel => {
+            RecordType::Parcel => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        ParcelPanel::render(ctx, ui, &mut self.parcel_sign_modal, &mut self.parcel_records);
+                        self.parcel_panel.render(ctx, ui, &mut self.parcel_sign_modal, &mut self.parcel_records);
                     });
             },
-            Panel::GamePanel => {
+            RecordType::Game => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        GamePanel::render(ctx, ui, &mut self.game_sign_modal, &self.game_types, &mut self.game_records);
+                        self.game_panel.render(ctx, ui, &mut self.game_sign_modal, &self.game_types, &mut self.game_records);
                     });
             },
-            Panel::ItemPanel => {
+            RecordType::Item => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        ItemPanel::render(ctx, ui, &mut self.item_sign_modal, &self.item_types, &mut self.item_records);
+                        self.item_panel.render(ctx, ui, &mut self.item_sign_modal, &self.item_types, &mut self.item_records);
                     });
             },
         };

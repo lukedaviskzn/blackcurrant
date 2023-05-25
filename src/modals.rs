@@ -1,6 +1,9 @@
-use egui_extras::{TableBuilder, Column};
+use std::{thread::JoinHandle, path::PathBuf};
 
-use crate::{records::{KeyTypeStorage, RecordStorage, KeyStorage, KeyRecord, ParcelRecord, ParcelStorage, GameStorage, GameRecord, GameTypeStorage, GameTypeRecord, ItemTypeStorage, ItemRecord, ItemStorage}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, MAX_QUANTITY, STAFF_NUMBER_LENGTH}};
+use egui_extras::{TableBuilder, Column};
+use strum::IntoEnumIterator;
+
+use crate::{records::{KeyTypeStorage, Storage, KeyStorage, KeyRecord, ParcelRecord, ParcelStorage, GameStorage, GameRecord, GameTypeStorage, GameTypeRecord, ItemTypeStorage, ItemRecord, ItemStorage, RecordType, AddibleStorage, DeletableStorage, SignableStorage, QuantitySignableStorage}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, MAX_QUANTITY, STAFF_NUMBER_LENGTH, BACKUP_DATE_TIME_FORMAT}};
 
 fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: Option<&str>, input: &mut String) {
     ui.label(label);
@@ -49,46 +52,8 @@ pub struct KeySignModal {
     pub student_number_error: Option<String>,
     pub receptionist: String,
     pub receptionist_error: Option<String>,
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct ParcelSignModal {
-    pub parcel_desc: String,
-    pub parcel_desc_error: Option<String>,
-    pub student_name: String,
-    pub student_name_error: Option<String>,
-    pub receptionist: String,
-    pub receptionist_error: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct GameSignModal {
-    pub game: String,
-    pub game_error: Option<String>,
-    pub quantity: i64,
-    pub quantity_str: String,
-    pub quantity_error: Option<String>,
-    pub student_name: String,
-    pub student_name_error: Option<String>,
-    pub student_number: String,
-    pub student_number_error: Option<String>,
-    pub receptionist: String,
-    pub receptionist_error: Option<String>,
-}
-
-#[derive(Debug, Clone)]
-pub struct ItemSignModal {
-    pub item: String,
-    pub item_error: Option<String>,
-    pub quantity: i64,
-    pub quantity_str: String,
-    pub quantity_error: Option<String>,
-    pub student_name: String,
-    pub student_name_error: Option<String>,
-    pub student_number: String,
-    pub student_number_error: Option<String>,
-    pub receptionist: String,
-    pub receptionist_error: Option<String>,
+    pub notes: String,
+    pub notes_error: Option<String>,
 }
 
 impl KeySignModal {
@@ -128,6 +93,9 @@ impl KeySignModal {
                 // Receptionist
                 render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
                 
+                // Notes
+                render_modal_text_entry(ui, "Notes", self.notes_error.as_ref().map(|s| s.as_str()), &mut self.notes);
+                
                 ui.add_space(4.0);
 
                 // Buttons
@@ -147,7 +115,7 @@ impl KeySignModal {
                             error = true;
                         }
 
-                        if let Some(record) = key_records.get_all().iter().rev().find(|r| r.key == key && r.time_in.is_none()) {
+                        if let Some(record) = key_records.get_signed_out(key).unwrap() {
                             self.key_error = Some(format!("Key already signed out on {}.", chrono::DateTime::<chrono::Local>::from(record.time_out).format(DATE_TIME_FORMAT)));
                             error = true;
                         }
@@ -196,16 +164,28 @@ impl KeySignModal {
                             error = true;
                         }
 
+                        // Notes
+                        
+                        self.notes_error = None;
+
+                        let notes = self.notes.trim();
+
+                        if notes.len() > NAME_MAX_LENGTH {
+                            self.notes_error = Some(format!("Notes too long. (> {NAME_MAX_LENGTH} characters)"));
+                            error = true;
+                        }
+
                         // Entry valid, add record
                         if !error {
                             add_record = Some(KeyRecord {
                                 id: 0,
                                 key: self.key.clone(),
                                 student_name: self.student_name.clone(),
-                                student_number: self.student_number.clone(),
+                                student_number: self.student_number.to_uppercase(),
                                 receptionist: self.receptionist.clone(),
                                 time_out: chrono::Utc::now(),
                                 time_in: None,
+                                notes: self.notes.clone(),
                             });
                             close_modal = true;
                         }
@@ -224,6 +204,18 @@ impl KeySignModal {
     }
 }
 
+#[derive(Debug, Clone, Default)]
+pub struct ParcelSignModal {
+    pub parcel_desc: String,
+    pub parcel_desc_error: Option<String>,
+    pub student_name: String,
+    pub student_name_error: Option<String>,
+    pub receptionist: String,
+    pub receptionist_error: Option<String>,
+    pub notes: String,
+    pub notes_error: Option<String>,
+}
+
 impl ParcelSignModal {
     pub fn render(&mut self, ctx: &eframe::egui::Context, parcel_records: &mut ParcelStorage) -> bool {
         let mut close_modal = false;
@@ -236,10 +228,13 @@ impl ParcelSignModal {
                 render_modal_text_entry(ui, "Parcel Description", self.parcel_desc_error.as_ref().map(|s| s.as_str()), &mut self.parcel_desc);
 
                 // Student Name
-                render_modal_text_entry(ui, "Student/Staff Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
+                render_modal_text_entry(ui, "Student Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
 
                 // Receptionist
                 render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
+                
+                // Notes
+                render_modal_text_entry(ui, "Notes", self.notes_error.as_ref().map(|s| s.as_str()), &mut self.notes);
 
                 ui.add_space(4.0);
 
@@ -297,6 +292,17 @@ impl ParcelSignModal {
                             error = true;
                         }
 
+                        // Notes
+                        
+                        self.notes_error = None;
+
+                        let notes = self.notes.trim();
+
+                        if notes.len() > NAME_MAX_LENGTH {
+                            self.notes_error = Some(format!("Notes too long. (> {NAME_MAX_LENGTH} characters)"));
+                            error = true;
+                        }
+
                         // Entry valid, add record
                         if !error {
                             parcel_records.add(ParcelRecord {
@@ -305,6 +311,8 @@ impl ParcelSignModal {
                                 student_name: self.student_name.clone(),
                                 receptionist: self.receptionist.clone(),
                                 time_in: chrono::Utc::now(),
+                                time_out: None,
+                                notes: self.notes.clone(),
                             }).unwrap();
                             
                             close_modal = true;
@@ -318,6 +326,23 @@ impl ParcelSignModal {
 
         return close_modal;
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct GameSignModal {
+    pub game: String,
+    pub game_error: Option<String>,
+    pub quantity: i64,
+    pub quantity_str: String,
+    pub quantity_error: Option<String>,
+    pub student_name: String,
+    pub student_name_error: Option<String>,
+    pub student_number: String,
+    pub student_number_error: Option<String>,
+    pub receptionist: String,
+    pub receptionist_error: Option<String>,
+    pub notes: String,
+    pub notes_error: Option<String>,
 }
 
 impl Default for GameSignModal {
@@ -334,6 +359,8 @@ impl Default for GameSignModal {
             student_number_error: Default::default(),
             receptionist: Default::default(),
             receptionist_error: Default::default(),
+            notes: Default::default(),
+            notes_error: Default::default(),
         }
     }
 }
@@ -391,10 +418,7 @@ impl GameSignModal {
                     if updated {
                         let max_quantity = if let Some(game) = game_types.get(&self.game) {
                             // Count quantity of all games already out
-                            let already_out: i64 = game_records.get_all().iter()
-                                .filter(|r| r.game == self.game && r.time_in.is_none())
-                                .map(|g| g.quantity)
-                                .sum();
+                            let already_out = game_records.get_signed_out(&self.game).unwrap();
 
                             (game.quantity - already_out).max(1)
                         } else {
@@ -412,13 +436,16 @@ impl GameSignModal {
                 ui.add_space(4.0);
 
                 // Student Name
-                render_modal_text_entry(ui, "Student/Staff Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
+                render_modal_text_entry(ui, "Student Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
 
                 // Student Number
-                render_modal_text_entry(ui, "Student/Staff Number", self.student_number_error.as_ref().map(|s| s.as_str()), &mut self.student_number);
+                render_modal_text_entry(ui, "Student Number", self.student_number_error.as_ref().map(|s| s.as_str()), &mut self.student_number);
 
                 // Student Receptionist
                 render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
+                
+                // Notes
+                render_modal_text_entry(ui, "Notes", self.notes_error.as_ref().map(|s| s.as_str()), &mut self.notes);
 
                 ui.add_space(4.0);
 
@@ -432,7 +459,7 @@ impl GameSignModal {
                         
                         self.game_error = None;
 
-                        let game = self.game.trim();
+                        let game = self.game.as_str();
 
                         if game.len() == 0 {
                             self.game_error = Some("Required".into());
@@ -450,10 +477,7 @@ impl GameSignModal {
                         
                         if let Some(game) = game_types.get(game) {
                             // Count quantity of all games already out
-                            let already_out: i64 = game_records.get_all().iter()
-                                .filter(|r| r.game == self.game && r.time_in.is_none())
-                                .map(|g| g.quantity)
-                                .sum();
+                            let already_out = game_records.get_signed_out(&self.game).unwrap();
 
                             if game.quantity - already_out <= 0{
                                 self.quantity_error = Some(format!("Not enough of this game in reception."));
@@ -505,6 +529,17 @@ impl GameSignModal {
                             error = true;
                         }
 
+                        // Notes
+                        
+                        self.notes_error = None;
+
+                        let notes = self.notes.trim();
+
+                        if notes.len() > NAME_MAX_LENGTH {
+                            self.notes_error = Some(format!("Notes too long. (> {NAME_MAX_LENGTH} characters)"));
+                            error = true;
+                        }
+
                         // Entry valid, add record
                         if !error {
                             game_records.add(GameRecord {
@@ -512,10 +547,11 @@ impl GameSignModal {
                                 game: self.game.clone(),
                                 quantity: self.quantity,
                                 student_name: self.student_name.clone(),
-                                student_number: self.student_number.clone(),
+                                student_number: self.student_number.to_uppercase(),
                                 receptionist: self.receptionist.clone(),
                                 time_out: chrono::Utc::now(),
                                 time_in: None,
+                                notes: self.notes.clone(),
                             }).unwrap();
                             
                             close_modal = true;
@@ -529,6 +565,23 @@ impl GameSignModal {
         
         return close_modal;
     }
+}
+
+#[derive(Debug, Clone)]
+pub struct ItemSignModal {
+    pub item: String,
+    pub item_error: Option<String>,
+    pub quantity: i64,
+    pub quantity_str: String,
+    pub quantity_error: Option<String>,
+    pub student_name: String,
+    pub student_name_error: Option<String>,
+    pub student_number: String,
+    pub student_number_error: Option<String>,
+    pub receptionist: String,
+    pub receptionist_error: Option<String>,
+    pub notes: String,
+    pub notes_error: Option<String>,
 }
 
 impl Default for ItemSignModal {
@@ -545,6 +598,8 @@ impl Default for ItemSignModal {
             student_number_error: Default::default(),
             receptionist: Default::default(),
             receptionist_error: Default::default(),
+            notes: Default::default(),
+            notes_error: Default::default(),
         }
     }
 }
@@ -613,13 +668,16 @@ impl ItemSignModal {
                 ui.add_space(4.0);
 
                 // Student Name
-                render_modal_text_entry(ui, "Student/Staff Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
+                render_modal_text_entry(ui, "Student Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
 
                 // Student Number
-                render_modal_text_entry(ui, "Student/Staff Number", self.student_number_error.as_ref().map(|s| s.as_str()), &mut self.student_number);
+                render_modal_text_entry(ui, "Student Number", self.student_number_error.as_ref().map(|s| s.as_str()), &mut self.student_number);
                 
                 // Student Receptionist
                 render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
+                
+                // Notes
+                render_modal_text_entry(ui, "Notes", self.notes_error.as_ref().map(|s| s.as_str()), &mut self.notes);
                 
                 ui.add_space(4.0);
 
@@ -684,6 +742,17 @@ impl ItemSignModal {
                             error = true;
                         }
 
+                        // Notes
+                        
+                        self.notes_error = None;
+
+                        let notes = self.notes.trim();
+
+                        if notes.len() > NAME_MAX_LENGTH {
+                            self.notes_error = Some(format!("Notes too long. (> {NAME_MAX_LENGTH} characters)"));
+                            error = true;
+                        }
+
                         // Entry valid, add record
                         if !error {
                             add_record = Some(ItemRecord {
@@ -691,9 +760,10 @@ impl ItemSignModal {
                                 item: self.item.clone(),
                                 quantity: self.quantity,
                                 student_name: self.student_name.clone(),
-                                student_number: self.student_number.clone(),
+                                student_number: self.student_number.to_uppercase(),
                                 receptionist: self.receptionist.clone(),
                                 time_out: chrono::Utc::now(),
+                                notes: self.notes.clone(),
                             });
                             close_modal = true;
                         }
@@ -707,65 +777,6 @@ impl ItemSignModal {
         if let Some(record) = add_record {
             item_records.add(record).unwrap();
         }
-        
-        return close_modal;
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct ExitModal {
-    pub close_process: bool,
-}
-
-impl ExitModal {
-    pub fn render(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) -> bool {
-        let mut close_modal = false;
-        
-        egui::Window::new("Are you sure you want to exit?")
-                .collapsible(false)
-                .resizable(false)
-                .anchor(egui::Align2::CENTER_CENTER, (0.0, 0.0))
-                .show(ctx, |ui| {
-                    ui.vertical_centered_justified(|ui| {
-                        if ui.button("Yes").clicked() {
-                            frame.close();
-                            self.close_process = true;
-                        }
-                        // ui.separator();
-                        if ui.button("Cancel").clicked() {
-                            close_modal = true;
-                        }
-                    });
-                });
-        
-        return close_modal;
-    }
-}
-
-#[derive(Debug, Clone, Default)]
-pub struct AlertModal {
-    pub title: String,
-    pub description: Option<String>,
-}
-
-impl AlertModal {
-    pub fn render(&mut self, ctx: &eframe::egui::Context) -> bool {
-        let mut close_modal = false;
-        
-        egui::Window::new(&self.title)
-            .collapsible(false)
-            .resizable(false)
-            .anchor(egui::Align2::CENTER_CENTER, (0.0, 0.0))
-            .show(ctx, |ui| {
-                ui.vertical_centered_justified(|ui| {
-                    if let Some(desc) = &self.description {
-                        ui.label(desc);
-                    }
-                    if ui.button("Ok").clicked() {
-                        close_modal = true;
-                    }
-                });
-            });
         
         return close_modal;
     }
@@ -1135,6 +1146,143 @@ impl ItemEntryModal {
             item_types.delete(&item).unwrap();
         }
 
+        return close_modal;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ExitModal {
+    pub close_process: bool,
+}
+
+impl ExitModal {
+    pub fn render(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) -> bool {
+        let mut close_modal = false;
+        
+        egui::Window::new("Are you sure you want to exit?")
+                .collapsible(false)
+                .resizable(false)
+                .anchor(egui::Align2::CENTER_CENTER, (0.0, 0.0))
+                .show(ctx, |ui| {
+                    ui.vertical_centered_justified(|ui| {
+                        if ui.button("Yes").clicked() {
+                            frame.close();
+                            self.close_process = true;
+                        }
+                        // ui.separator();
+                        if ui.button("Cancel").clicked() {
+                            close_modal = true;
+                        }
+                    });
+                });
+        
+        return close_modal;
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AlertModal {
+    pub title: String,
+    pub description: Option<String>,
+}
+
+impl AlertModal {
+    pub fn render(&mut self, ctx: &eframe::egui::Context) -> bool {
+        let mut close_modal = false;
+        
+        egui::Window::new(&self.title)
+            .collapsible(false)
+            .resizable(false)
+            .anchor(egui::Align2::CENTER_CENTER, (0.0, 0.0))
+            .show(ctx, |ui| {
+                ui.vertical_centered_justified(|ui| {
+                    if let Some(desc) = &self.description {
+                        ui.label(desc);
+                    }
+                    if ui.button("Ok").clicked() {
+                        close_modal = true;
+                    }
+                });
+            });
+        
+        return close_modal;
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ExportModal {
+    pub record_type: RecordType,
+    pub export_handle: Option<JoinHandle<(RecordType, Option<PathBuf>)>>,
+}
+
+impl ExportModal {
+    pub fn render(&mut self, ctx: &eframe::egui::Context) -> bool {
+        let mut close_modal = false;
+        
+        egui::Window::new("Export Records")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                for record_type in RecordType::iter() {
+                    ui.radio_value(&mut self.record_type, record_type, format!("{} Records", record_type));
+                }
+
+                // Buttons
+                
+                ui.horizontal(|ui| {
+                    if ui.button("Export").clicked() {
+                        let record_type = self.record_type;
+                        
+                        self.export_handle = Some(std::thread::spawn(move || {
+                            let record_type_str = record_type.to_string().to_lowercase();
+                            
+                            let path = rfd::FileDialog::new()
+                                .add_filter("CSV File", &["csv"])
+                                .set_file_name(&format!("{record_type_str}_records_{}.csv", chrono::Local::now().format(BACKUP_DATE_TIME_FORMAT).to_string()))
+                                .save_file();
+                            
+                            (record_type, path)
+                        }));
+                        
+                        close_modal = true;
+                    }
+                    if ui.button("Close").clicked() {
+                        close_modal = true;
+                    }
+                });
+            });
+        
+        return close_modal;
+    }
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct AboutModal;
+
+impl AboutModal {
+    pub fn render(&mut self, ctx: &eframe::egui::Context) -> bool {
+        let mut close_modal = false;
+        
+        egui::Window::new("About Blackcurrant")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                ui.label("The Blackcurrant Reception Managment System was created for the purpose of managing records of common UCT residence tasks.");
+                
+                // Note non-breaking space inbetween phone number sections.
+                ui.label("It was developed by Luke Davis (2023 UCR/Smuts Hall House Committee Member, Academics, IT & Media Portfolios, 071 302 5271).");
+
+                ui.add_space(4.0);
+                
+                // Buttons
+                
+                ui.horizontal(|ui| {
+                    if ui.button("Close").clicked() {
+                        close_modal = true;
+                    }
+                });
+            });
+        
         return close_modal;
     }
 }

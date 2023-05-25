@@ -8,7 +8,7 @@ mod panels;
 fn main() -> eframe::Result<()> {
     let native_options = eframe::NativeOptions::default();
     eframe::run_native(
-        "Blackcurrant",
+        "Blackcurrant RMS",
         native_options,
         Box::new(|cc| Box::new(app::App::new(cc))),
     )
