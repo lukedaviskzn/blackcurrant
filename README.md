@@ -13,4 +13,4 @@ Records are stored in a local SQLite DB, thus Blackcurrant can work during loads
 online backups are planned but not yet implemented. A manual backup of the DB can be saved as an sqlite file.
 Records can be exported to CSV if needed for external use.
 
-Currently no authentication system as not needed in original use case. May be implemented in future.
+Currently, no authentication system as not needed in original use case. May be implemented in future.
