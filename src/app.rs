@@ -86,7 +86,7 @@ impl Default for App {
                 receptionist VARCHAR(512),
                 time_out VARCHAR(64) NOT NULL,
                 time_in VARCHAR(64),
-                notes VARCHAT(512) NOT NULL
+                notes VARCHAR(512) NOT NULL
             )",
             // Create parcel record table
             "CREATE TABLE parcel_records (
@@ -96,7 +96,7 @@ impl Default for App {
                 receptionist VARCHAR(512) NOT NULL,
                 time_in VARCHAR(64) NOT NULL,
                 time_out VARCHAR(64),
-                notes VARCHAT(512) NOT NULL
+                notes VARCHAR(512) NOT NULL
             )",
             // Create game record table
             "CREATE TABLE game_records (
@@ -108,7 +108,7 @@ impl Default for App {
                 receptionist VARCHAR(512),
                 time_out VARCHAR(64) NOT NULL,
                 time_in VARCHAR(64),
-                notes VARCHAT(512) NOT NULL
+                notes VARCHAR(512) NOT NULL
             )",
             // Create item record table
             "CREATE TABLE item_records (
@@ -119,7 +119,7 @@ impl Default for App {
                 student_number VARCHAR(9) NOT NULL,
                 receptionist VARCHAR(512) NOT NULL,
                 time_out VARCHAR(64) NOT NULL,
-                notes VARCHAT(512) NOT NULL
+                notes VARCHAR(512) NOT NULL
             )",
         ];
 
