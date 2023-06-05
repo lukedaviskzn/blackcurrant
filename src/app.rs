@@ -1,6 +1,6 @@
 use std::{rc::Rc, path::PathBuf, thread::JoinHandle};
 
-use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError}, modals::{KeySignModal, ParcelSignModal, GameSignModal, AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ItemSignModal, ExportModal, AboutModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 pub const NAME_MAX_LENGTH: usize = 256;
 pub const STUDENT_NUMBER_LENGTH: usize = 9;
@@ -32,11 +32,6 @@ pub struct App {
     parcel_panel: ParcelPanel,
     game_panel: GamePanel,
     item_panel: ItemPanel,
-
-    key_sign_modal: Option<KeySignModal>,
-    parcel_sign_modal: Option<ParcelSignModal>,
-    game_sign_modal: Option<GameSignModal>,
-    item_sign_modal: Option<ItemSignModal>,
     
     key_entry_modal: Option<KeyEntryModal>,
     game_entry_modal: Option<GameEntryModal>,
@@ -88,7 +83,7 @@ impl Default for App {
                 key VARCHAR(512) NOT NULL,
                 student_name VARCHAR(512) NOT NULL,
                 student_number VARCHAR(9) NOT NULL,
-                receptionist VARCHAR(512) NOT NULL,
+                receptionist VARCHAR(512),
                 time_out VARCHAR(64) NOT NULL,
                 time_in VARCHAR(64),
                 notes VARCHAT(512) NOT NULL
@@ -110,7 +105,7 @@ impl Default for App {
                 quantity INTEGER NOT NULL,
                 student_name VARCHAR(512) NOT NULL,
                 student_number VARCHAR(9) NOT NULL,
-                receptionist VARCHAR(512) NOT NULL,
+                receptionist VARCHAR(512),
                 time_out VARCHAR(64) NOT NULL,
                 time_in VARCHAR(64),
                 notes VARCHAT(512) NOT NULL
@@ -173,11 +168,6 @@ impl Default for App {
             parcel_records: ParcelStorage::new(Rc::clone(&connection)).unwrap(),
             game_records: GameStorage::new(Rc::clone(&connection)).unwrap(),
             item_records: ItemStorage::new(Rc::clone(&connection)).unwrap(),
-
-            key_sign_modal: None,
-            parcel_sign_modal: None,
-            game_sign_modal: None,
-            item_sign_modal: None,
             
             key_entry_modal: None,
             game_entry_modal: None,
@@ -192,11 +182,32 @@ impl Default for App {
 }
 
 impl App {
-    pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let app = Self::default();
+        
+        App::setup_custom_fonts(&cc.egui_ctx);
 
         app
     }
+
+    fn setup_custom_fonts(ctx: &egui::Context) {
+        // Start with the default fonts
+        let mut fonts = egui::FontDefinitions::default();
+        
+        fonts.font_data.insert(
+            "fa-solid-900".to_owned(),
+            egui::FontData::from_static(include_bytes!("../fonts/fa-solid-900.ttf")),
+        );
+    
+        fonts
+            .families
+            .entry(egui::FontFamily::Name("icons".into()))
+            .or_default()
+            .insert(0, "fa-solid-900".to_owned());
+    
+        ctx.set_fonts(fonts);
+    }
+    
 }
 
 impl eframe::App for App {
@@ -397,25 +408,25 @@ impl eframe::App for App {
             RecordType::Key => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.key_panel.render(ctx, ui, &mut self.key_sign_modal, &self.key_types, &mut self.key_records);
+                        self.key_panel.render(ctx, ui, &self.key_types, &mut self.key_records);
                     });
             },
             RecordType::Parcel => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.parcel_panel.render(ctx, ui, &mut self.parcel_sign_modal, &mut self.parcel_records);
+                        self.parcel_panel.render(ctx, ui, &mut self.parcel_records);
                     });
             },
             RecordType::Game => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.game_panel.render(ctx, ui, &mut self.game_sign_modal, &self.game_types, &mut self.game_records);
+                        self.game_panel.render(ctx, ui, &self.game_types, &mut self.game_records);
                     });
             },
             RecordType::Item => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.item_panel.render(ctx, ui, &mut self.item_sign_modal, &self.item_types, &mut self.item_records);
+                        self.item_panel.render(ctx, ui, &self.item_types, &mut self.item_records);
                     });
             },
         };

@@ -57,7 +57,7 @@ pub struct KeyRecord {
     pub key: String,
     pub student_name: String,
     pub student_number: String,
-    pub receptionist: String,
+    pub receptionist: Option<String>,
     pub time_out: chrono::DateTime<chrono::Utc>,
     pub time_in: Option<chrono::DateTime<chrono::Utc>>,
     pub notes: String,
@@ -81,7 +81,7 @@ pub struct GameRecord {
     pub quantity: i64,
     pub student_name: String,
     pub student_number: String,
-    pub receptionist: String,
+    pub receptionist: Option<String>,
     pub time_out: chrono::DateTime<chrono::Utc>,
     pub time_in: Option<chrono::DateTime<chrono::Utc>>,
     pub notes: String,
@@ -148,6 +148,14 @@ pub trait DeletableStorage<T, I: Copy> {
 
 pub trait TimeUpdateableStorage<T, I: Copy> {
     fn update_time(&mut self, id: I) -> Result<(), StorageError>;
+}
+
+pub trait TimeReceptionistUpdateableStorage<T, I: Copy> {
+    fn update_receptionist_and_time(&mut self, id: I, receptionist: &str) -> Result<(), StorageError>;
+}
+
+pub trait NotedStorage<T, I: Copy> {
+    fn update_notes(&mut self, id: I, note: &str) -> Result<(), StorageError>;
 }
 
 pub trait SignableStorage<T, IT: Copy> {
@@ -242,7 +250,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
                 key: record.read::<&str, _>("key").into(),
                 student_name: record.read::<&str, _>("student_name").into(),
                 student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
+                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
                 time_out,
                 time_in,
                 notes: record.read::<&str, _>("notes").into(),
@@ -294,7 +302,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
                 key: record.read::<&str, _>("key").into(),
                 student_name: record.read::<&str, _>("student_name").into(),
                 student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
+                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
                 time_out,
                 time_in,
                 notes: record.read::<&str, _>("notes").into(),
@@ -308,7 +316,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
                 &record.key,
                 &record.student_name,
                 &record.student_number,
-                &record.receptionist,
+                &record.receptionist.unwrap_or_default(),
                 &record.notes,
             ]).map_err(|e| StorageError::ExportError(Box::new(e)))?;
         }
@@ -322,10 +330,10 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
 impl AddibleStorage<KeyRecord, i64> for KeyStorage {
     fn add(&mut self, record: KeyRecord) -> Result<(), StorageError> {
         {
-            let mut stmt = self.connection.prepare("INSERT INTO key_records (id, key, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, ?, ?, NULL, ?)")
+            let mut stmt = self.connection.prepare("INSERT INTO key_records (id, key, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, NULL, ?, NULL, ?)")
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
         
-            stmt.bind(&[record.key.as_str(), &record.student_name, &record.student_number, &record.receptionist, &record.time_out.to_rfc3339(), &record.notes][..])
+            stmt.bind(&[record.key.as_str(), &record.student_name, &record.student_number, &record.time_out.to_rfc3339(), &record.notes][..])
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
             while let Ok(sqlite::State::Row) = stmt.next() {}
@@ -337,13 +345,31 @@ impl AddibleStorage<KeyRecord, i64> for KeyStorage {
     }
 }
 
-impl TimeUpdateableStorage<KeyRecord, i64> for KeyStorage {
-    fn update_time(&mut self, id: i64) -> Result<(), StorageError> {
+impl TimeReceptionistUpdateableStorage<KeyRecord, i64> for KeyStorage {
+    fn update_receptionist_and_time(&mut self, id: i64, receptionist: &str) -> Result<(), StorageError> {
         {
-            let mut stmt = self.connection.prepare("UPDATE key_records SET time_in = ? WHERE id = ?")
+            let mut stmt = self.connection.prepare("UPDATE key_records SET receptionist = ?, time_in = ? WHERE id = ?")
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
-            stmt.bind(&[chrono::Utc::now().to_rfc3339().as_str(), &id.to_string()][..])
+            stmt.bind(&[receptionist, &chrono::Utc::now().to_rfc3339(), &id.to_string()][..])
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            while let Ok(sqlite::State::Row) = stmt.next() {}
+        }
+
+        self.refresh()?;
+        
+        Ok(())
+    }
+}
+
+impl NotedStorage<KeyRecord, i64> for KeyStorage {
+    fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
+        {
+            let mut stmt = self.connection.prepare("UPDATE key_records SET notes = ? WHERE id = ?")
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            stmt.bind(&[notes, &id.to_string()][..])
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
             while let Ok(sqlite::State::Row) = stmt.next() {}
@@ -376,7 +402,7 @@ impl SignableStorage<KeyRecord, &str> for KeyStorage {
                 key: record.read::<&str, _>("key").into(),
                 student_name: record.read::<&str, _>("student_name").into(),
                 student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
+                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
                 time_out,
                 time_in,
                 notes: record.read::<&str, _>("notes").into(),
@@ -628,6 +654,24 @@ impl TimeUpdateableStorage<ParcelRecord, i64> for ParcelStorage {
     }
 }
 
+impl NotedStorage<ParcelRecord, i64> for ParcelStorage {
+    fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
+        {
+            let mut stmt = self.connection.prepare("UPDATE parcel_records SET notes = ? WHERE id = ?")
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            stmt.bind(&[notes, &id.to_string()][..])
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            while let Ok(sqlite::State::Row) = stmt.next() {}
+        }
+
+        self.refresh()?;
+        
+        Ok(())
+    }
+}
+
 pub struct GameStorage {
     connection: Rc<sqlite::Connection>,
     records: Vec<GameRecord>,
@@ -713,7 +757,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
                 quantity: record.read("quantity"),
                 student_name: record.read::<&str, _>("student_name").into(),
                 student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
+                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
                 time_out,
                 time_in,
                 notes: record.read::<&str, _>("notes").into(),
@@ -767,7 +811,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
                 quantity: record.read("quantity"),
                 student_name: record.read::<&str, _>("student_name").into(),
                 student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
+                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
                 time_out,
                 time_in,
                 notes: record.read::<&str, _>("notes").into(),
@@ -782,7 +826,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
                 &record.quantity.to_string(),
                 &record.student_name,
                 &record.student_number,
-                &record.receptionist,
+                &record.receptionist.unwrap_or_default(),
                 &record.notes,
             ]).map_err(|e| StorageError::ExportError(Box::new(e)))?;
         }
@@ -819,10 +863,10 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
 impl AddibleStorage<GameRecord, i64> for GameStorage {
     fn add(&mut self, record: GameRecord) -> Result<(), StorageError> {
         {
-            let mut stmt = self.connection.prepare("INSERT INTO game_records (id, game, quantity, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, ?, ?, ?, NULL, ?)")
+            let mut stmt = self.connection.prepare("INSERT INTO game_records (id, game, quantity, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, ?, NULL, ?, NULL, ?)")
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
-            stmt.bind(&[record.game.as_str(), &record.quantity.to_string(), &record.student_name, &record.student_number, &record.receptionist, &record.time_out.to_rfc3339(), &record.notes][..])
+            stmt.bind(&[record.game.as_str(), &record.quantity.to_string(), &record.student_name, &record.student_number, &record.time_out.to_rfc3339(), &record.notes][..])
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
             while let Ok(sqlite::State::Row) = stmt.next() {}
@@ -834,13 +878,31 @@ impl AddibleStorage<GameRecord, i64> for GameStorage {
     }
 }
 
-impl TimeUpdateableStorage<GameRecord, i64> for GameStorage {
-    fn update_time(&mut self, id: i64) -> Result<(), StorageError> {
+impl TimeReceptionistUpdateableStorage<GameRecord, i64> for GameStorage {
+    fn update_receptionist_and_time(&mut self, id: i64, receptionist: &str) -> Result<(), StorageError> {
         {
-            let mut stmt = self.connection.prepare("UPDATE game_records SET time_in = ? WHERE id = ?")
+            let mut stmt = self.connection.prepare("UPDATE game_records SET receptionist = ?, time_in = ? WHERE id = ?")
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
-            stmt.bind(&[chrono::Utc::now().to_rfc3339().as_str(), &id.to_string()][..])
+            stmt.bind(&[receptionist, &chrono::Utc::now().to_rfc3339(), &id.to_string()][..])
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            while let Ok(sqlite::State::Row) = stmt.next() {}
+        }
+
+        self.refresh()?;
+        
+        Ok(())
+    }
+}
+
+impl NotedStorage<GameRecord, i64> for GameStorage {
+    fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
+        {
+            let mut stmt = self.connection.prepare("UPDATE game_records SET notes = ? WHERE id = ?")
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            stmt.bind(&[notes, &id.to_string()][..])
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
             while let Ok(sqlite::State::Row) = stmt.next() {}
@@ -1027,6 +1089,24 @@ impl AddibleStorage<ItemRecord, i64> for ItemStorage {
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
         
             stmt.bind(&[record.item.as_str(), &record.quantity.to_string(), &record.student_name, &record.student_number, &record.receptionist, &record.time_out.to_rfc3339(), &record.notes][..])
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            while let Ok(sqlite::State::Row) = stmt.next() {}
+        }
+
+        self.refresh()?;
+        
+        Ok(())
+    }
+}
+
+impl NotedStorage<ItemRecord, i64> for ItemStorage {
+    fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
+        {
+            let mut stmt = self.connection.prepare("UPDATE item_records SET notes = ? WHERE id = ?")
+                .map_err(|e| StorageError::PreparedStatementError(e))?;
+            
+            stmt.bind(&[notes, &id.to_string()][..])
                 .map_err(|e| StorageError::PreparedStatementError(e))?;
             
             while let Ok(sqlite::State::Row) = stmt.next() {}

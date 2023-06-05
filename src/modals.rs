@@ -3,7 +3,7 @@ use std::{thread::JoinHandle, path::PathBuf};
 use egui_extras::{TableBuilder, Column};
 use strum::IntoEnumIterator;
 
-use crate::{records::{KeyTypeStorage, Storage, KeyStorage, KeyRecord, ParcelRecord, ParcelStorage, GameStorage, GameRecord, GameTypeStorage, GameTypeRecord, ItemTypeStorage, ItemRecord, ItemStorage, RecordType, AddibleStorage, DeletableStorage, SignableStorage, QuantitySignableStorage}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, MAX_QUANTITY, STAFF_NUMBER_LENGTH, BACKUP_DATE_TIME_FORMAT}};
+use crate::{records::{KeyTypeStorage, Storage, KeyStorage, KeyRecord, ParcelRecord, ParcelStorage, GameStorage, GameRecord, GameTypeStorage, GameTypeRecord, ItemTypeStorage, ItemRecord, ItemStorage, RecordType, AddibleStorage, DeletableStorage, SignableStorage, QuantitySignableStorage, TimeReceptionistUpdateableStorage}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, MAX_QUANTITY, STAFF_NUMBER_LENGTH, BACKUP_DATE_TIME_FORMAT}};
 
 fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: Option<&str>, input: &mut String) {
     ui.label(label);
@@ -50,8 +50,8 @@ pub struct KeySignModal {
     pub student_name_error: Option<String>,
     pub student_number: String,
     pub student_number_error: Option<String>,
-    pub receptionist: String,
-    pub receptionist_error: Option<String>,
+    // pub receptionist: String,
+    // pub receptionist_error: Option<String>,
     pub notes: String,
     pub notes_error: Option<String>,
 }
@@ -91,7 +91,7 @@ impl KeySignModal {
                 render_modal_text_entry(ui, "Student Number", self.student_number_error.as_ref().map(|s| s.as_str()), &mut self.student_number);
                 
                 // Receptionist
-                render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
+                // render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
                 
                 // Notes
                 render_modal_text_entry(ui, "Notes", self.notes_error.as_ref().map(|s| s.as_str()), &mut self.notes);
@@ -148,21 +148,21 @@ impl KeySignModal {
                             error = true;
                         }
 
-                        // Receptionist
+                        // // Receptionist
                         
-                        self.receptionist_error = None;
+                        // self.receptionist_error = None;
 
-                        let receptionist = self.receptionist.trim();
+                        // let receptionist = self.receptionist.trim();
 
-                        if receptionist.len() == 0 {
-                            self.receptionist_error = Some("Required".into());
-                            error = true;
-                        }
+                        // if receptionist.len() == 0 {
+                        //     self.receptionist_error = Some("Required".into());
+                        //     error = true;
+                        // }
 
-                        if receptionist.len() > NAME_MAX_LENGTH {
-                            self.receptionist_error = Some(format!("Name too long. (> {NAME_MAX_LENGTH} characters)"));
-                            error = true;
-                        }
+                        // if receptionist.len() > NAME_MAX_LENGTH {
+                        //     self.receptionist_error = Some(format!("Name too long. (> {NAME_MAX_LENGTH} characters)"));
+                        //     error = true;
+                        // }
 
                         // Notes
                         
@@ -182,7 +182,8 @@ impl KeySignModal {
                                 key: self.key.clone(),
                                 student_name: self.student_name.clone(),
                                 student_number: self.student_number.to_uppercase(),
-                                receptionist: self.receptionist.clone(),
+                                // receptionist: self.receptionist.clone(),
+                                receptionist: None,
                                 time_out: chrono::Utc::now(),
                                 time_in: None,
                                 notes: self.notes.clone(),
@@ -228,7 +229,7 @@ impl ParcelSignModal {
                 render_modal_text_entry(ui, "Parcel Description", self.parcel_desc_error.as_ref().map(|s| s.as_str()), &mut self.parcel_desc);
 
                 // Student Name
-                render_modal_text_entry(ui, "Student Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
+                render_modal_text_entry(ui, "Recipient Name", self.student_name_error.as_ref().map(|s| s.as_str()), &mut self.student_name);
 
                 // Receptionist
                 render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
@@ -339,8 +340,8 @@ pub struct GameSignModal {
     pub student_name_error: Option<String>,
     pub student_number: String,
     pub student_number_error: Option<String>,
-    pub receptionist: String,
-    pub receptionist_error: Option<String>,
+    // pub receptionist: String,
+    // pub receptionist_error: Option<String>,
     pub notes: String,
     pub notes_error: Option<String>,
 }
@@ -357,8 +358,8 @@ impl Default for GameSignModal {
             student_name_error: Default::default(),
             student_number: Default::default(),
             student_number_error: Default::default(),
-            receptionist: Default::default(),
-            receptionist_error: Default::default(),
+            // receptionist: Default::default(),
+            // receptionist_error: Default::default(),
             notes: Default::default(),
             notes_error: Default::default(),
         }
@@ -442,7 +443,7 @@ impl GameSignModal {
                 render_modal_text_entry(ui, "Student Number", self.student_number_error.as_ref().map(|s| s.as_str()), &mut self.student_number);
 
                 // Student Receptionist
-                render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
+                // render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
                 
                 // Notes
                 render_modal_text_entry(ui, "Notes", self.notes_error.as_ref().map(|s| s.as_str()), &mut self.notes);
@@ -513,21 +514,21 @@ impl GameSignModal {
                             error = true;
                         }
 
-                        // Receptionist
+                        // // Receptionist
                         
-                        self.receptionist_error = None;
+                        // self.receptionist_error = None;
 
-                        let receptionist = self.receptionist.trim();
+                        // let receptionist = self.receptionist.trim();
 
-                        if receptionist.len() == 0 {
-                            self.receptionist_error = Some("Required".into());
-                            error = true;
-                        }
+                        // if receptionist.len() == 0 {
+                        //     self.receptionist_error = Some("Required".into());
+                        //     error = true;
+                        // }
 
-                        if receptionist.len() > NAME_MAX_LENGTH {
-                            self.receptionist_error = Some(format!("Name too long. (> {NAME_MAX_LENGTH} characters)"));
-                            error = true;
-                        }
+                        // if receptionist.len() > NAME_MAX_LENGTH {
+                        //     self.receptionist_error = Some(format!("Name too long. (> {NAME_MAX_LENGTH} characters)"));
+                        //     error = true;
+                        // }
 
                         // Notes
                         
@@ -548,7 +549,8 @@ impl GameSignModal {
                                 quantity: self.quantity,
                                 student_name: self.student_name.clone(),
                                 student_number: self.student_number.to_uppercase(),
-                                receptionist: self.receptionist.clone(),
+                                // receptionist: self.receptionist.clone(),
+                                receptionist: None,
                                 time_out: chrono::Utc::now(),
                                 time_in: None,
                                 notes: self.notes.clone(),
@@ -1146,6 +1148,78 @@ impl ItemEntryModal {
             item_types.delete(&item).unwrap();
         }
 
+        return close_modal;
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SignInModal<I: Copy> {
+    pub receptionist: String,
+    pub receptionist_error: Option<String>,
+    pub record_id: I,
+}
+
+impl<I: Copy> SignInModal<I> {
+    pub fn new(id: I) -> SignInModal<I> {
+        SignInModal {
+            receptionist: Default::default(),
+            receptionist_error: Default::default(),
+            record_id: id,
+        }
+    }
+
+    pub fn render<T>(&mut self, ctx: &eframe::egui::Context, records: &mut impl TimeReceptionistUpdateableStorage<T, I>) -> bool {
+        let mut update_record = false;
+        let mut close_modal = false;
+
+        egui::Window::new("Sign In")
+            .collapsible(false)
+            .resizable(false)
+            .show(ctx, |ui| {
+                
+                // Receptionist
+                render_modal_text_entry(ui, "Receptionist", self.receptionist_error.as_ref().map(|s| s.as_str()), &mut self.receptionist);
+                
+                ui.add_space(4.0);
+
+                // Buttons
+                
+                ui.horizontal(|ui| {
+                    if ui.button("Sign In").clicked() {
+                        let mut error = false;
+                        
+                        // Receptionist
+                        
+                        self.receptionist_error = None;
+
+                        let receptionist = self.receptionist.trim();
+
+                        if receptionist.len() == 0 {
+                            self.receptionist_error = Some("Required".into());
+                            error = true;
+                        }
+
+                        if receptionist.len() > NAME_MAX_LENGTH {
+                            self.receptionist_error = Some(format!("Name too long. (> {NAME_MAX_LENGTH} characters)"));
+                            error = true;
+                        }
+
+                        // Entry valid, add record
+                        if !error {
+                            update_record = true;
+                            close_modal = true;
+                        }
+                    }
+                    if ui.button("Cancel").clicked() {
+                        close_modal = true;
+                    }
+                });
+            });
+        
+        if update_record {
+            records.update_receptionist_and_time(self.record_id, &self.receptionist).unwrap();
+        }
+        
         return close_modal;
     }
 }
