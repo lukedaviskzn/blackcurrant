@@ -186,6 +186,25 @@ impl KeyStorage {
 
         Ok(storage)
     }
+
+    fn parse_record(record: &sqlite::Row) -> KeyRecord {
+        let time_out = record.read("time_out");
+        let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
+        
+        let time_in = record.read::<Option<&str>, _>("time_in");
+        let time_in = time_in.map(|time_in| chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc));
+        
+        KeyRecord {
+            id: record.read("id"),
+            key: record.read::<&str, _>("key").into(),
+            student_name: record.read::<&str, _>("student_name").into(),
+            student_number: record.read::<&str, _>("student_number").into(),
+            receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
+            time_out,
+            time_in,
+            notes: record.read::<&str, _>("notes").into(),
+        }
+    }
 }
 
 impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
@@ -238,24 +257,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        self.records = records.map(|record| {
-            let time_out = record.read("time_out");
-            let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
-            
-            let time_in = record.read::<Option<&str>, _>("time_in");
-            let time_in = time_in.map(|time_in| chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc));
-            
-            KeyRecord {
-                id: record.read("id"),
-                key: record.read::<&str, _>("key").into(),
-                student_name: record.read::<&str, _>("student_name").into(),
-                student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
-                time_out,
-                time_in,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        }).collect();
+        self.records = records.map(|record| Self::parse_record(&record)).collect();
 
         Ok(())
     }
@@ -290,24 +292,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        let records = records.map(|record| {
-            let time_out = record.read("time_out");
-            let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
-            
-            let time_in = record.read::<Option<&str>, _>("time_in");
-            let time_in = time_in.map(|time_in| chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc));
-            
-            KeyRecord {
-                id: record.read("id"),
-                key: record.read::<&str, _>("key").into(),
-                student_name: record.read::<&str, _>("student_name").into(),
-                student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
-                time_out,
-                time_in,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        });
+        let records = records.map(|record| Self::parse_record(&record));
         
         for record in records {
             writer.write_record(&[
@@ -433,6 +418,24 @@ impl ParcelStorage {
 
         Ok(storage)
     }
+
+    fn parse_record(record: &sqlite::Row) -> ParcelRecord {
+        let time_in = record.read::<&str, _>("time_in");
+        let time_in = chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc);
+        
+        let time_out = record.read::<Option<&str>, _>("time_out");
+        let time_out = time_out.map(|time_out| chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc));
+        
+        ParcelRecord {
+            id: record.read("id"),
+            parcel_desc: record.read::<&str, _>("parcel_desc").into(),
+            student_name: record.read::<&str, _>("student_name").into(),
+            receptionist: record.read::<&str, _>("receptionist").into(),
+            time_in,
+            time_out,
+            notes: record.read::<&str, _>("notes").into(),
+        }
+    }
 }
 
 impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
@@ -485,23 +488,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        self.records = records.map(|record| {
-            let time_in = record.read::<&str, _>("time_in");
-            let time_in = chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc);
-            
-            let time_out = record.read::<Option<&str>, _>("time_out");
-            let time_out = time_out.map(|time_out| chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc));
-            
-            ParcelRecord {
-                id: record.read("id"),
-                parcel_desc: record.read::<&str, _>("parcel_desc").into(),
-                student_name: record.read::<&str, _>("student_name").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
-                time_in,
-                time_out,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        }).collect();
+        self.records = records.map(|record| Self::parse_record(&record)).collect();
 
         Ok(())
     }
@@ -535,23 +522,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        let records = records.map(|record| {
-            let time_in = record.read::<&str, _>("time_in");
-            let time_in = chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc);
-            
-            let time_out = record.read::<Option<&str>, _>("time_out");
-            let time_out = time_out.map(|time_out| chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc));
-            
-            ParcelRecord {
-                id: record.read("id"),
-                parcel_desc: record.read::<&str, _>("parcel_desc").into(),
-                student_name: record.read::<&str, _>("student_name").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
-                time_in,
-                time_out,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        });
+        let records = records.map(|record| Self::parse_record(&record));
         
         for record in records {
             writer.write_record(&[
@@ -692,6 +663,26 @@ impl GameStorage {
 
         Ok(storage)
     }
+
+    fn parse_record(record: &sqlite::Row) -> GameRecord {
+        let time_out = record.read("time_out");
+        let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
+        
+        let time_in = record.read::<Option<&str>, _>("time_in");
+        let time_in = time_in.map(|time_in| chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc));
+        
+        GameRecord {
+            id: record.read("id"),
+            game: record.read::<&str, _>("game").into(),
+            quantity: record.read("quantity"),
+            student_name: record.read::<&str, _>("student_name").into(),
+            student_number: record.read::<&str, _>("student_number").into(),
+            receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
+            time_out,
+            time_in,
+            notes: record.read::<&str, _>("notes").into(),
+        }
+    }
 }
 
 impl PaginatedStorage<GameRecord, i64> for GameStorage {
@@ -744,25 +735,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        self.records = records.map(|record| {
-            let time_out = record.read("time_out");
-            let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
-            
-            let time_in = record.read::<Option<&str>, _>("time_in");
-            let time_in = time_in.map(|time_in| chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc));
-            
-            GameRecord {
-                id: record.read("id"),
-                game: record.read::<&str, _>("game").into(),
-                quantity: record.read("quantity"),
-                student_name: record.read::<&str, _>("student_name").into(),
-                student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
-                time_out,
-                time_in,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        }).collect();
+        self.records = records.map(|record| Self::parse_record(&record)).collect();
 
         Ok(())
     }
@@ -798,25 +771,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        let records = records.map(|record| {
-            let time_out = record.read("time_out");
-            let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
-            
-            let time_in = record.read::<Option<&str>, _>("time_in");
-            let time_in = time_in.map(|time_in| chrono::DateTime::parse_from_rfc3339(time_in).unwrap().with_timezone(&chrono::Utc));
-            
-            GameRecord {
-                id: record.read("id"),
-                game: record.read::<&str, _>("game").into(),
-                quantity: record.read("quantity"),
-                student_name: record.read::<&str, _>("student_name").into(),
-                student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<Option<&str>, _>("receptionist").map(|s| s.into()),
-                time_out,
-                time_in,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        });
+        let records = records.map(|record| Self::parse_record(&record));
         
         for record in records {
             writer.write_record(&[
@@ -830,29 +785,6 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
                 &record.notes,
             ]).map_err(|e| StorageError::ExportError(Box::new(e)))?;
         }
-        // RecordType::Item => {
-        //     writer.write_record(&[
-        //         "Time Out",
-        //         "Item",
-        //         "Quantity",
-        //         "Student Name",
-        //         "Student Number",
-        //         "Receptionist",
-        //         "Notes",
-        //     ])?;
-            
-        //     for record in item_records.get_all() {
-        //         writer.write_record(&[
-        //             record.time_out.to_rfc3339().as_str(),
-        //             &record.item,
-        //             &record.quantity.to_string(),
-        //             &record.student_name,
-        //             &record.student_number,
-        //             &record.receptionist,
-        //             &record.notes,
-        //         ])?;
-        //     }
-        // },
         
         writer.flush().map_err(|e| StorageError::ExportError(Box::new(e)))?;
 
@@ -947,6 +879,22 @@ impl ItemStorage {
 
         Ok(storage)
     }
+
+    fn parse_record(record: &sqlite::Row) -> ItemRecord {
+        let time_out = record.read("time_out");
+        let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
+        
+        ItemRecord {
+            id: record.read("id"),
+            item: record.read::<&str, _>("item").into(),
+            quantity: record.read("quantity"),
+            student_name: record.read::<&str, _>("student_name").into(),
+            student_number: record.read::<&str, _>("student_number").into(),
+            receptionist: record.read::<&str, _>("receptionist").into(),
+            time_out,
+            notes: record.read::<&str, _>("notes").into(),
+        }
+    }
 }
 
 impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
@@ -999,21 +947,7 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        self.records = records.map(|record| {
-            let time_out = record.read("time_out");
-            let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
-            
-            ItemRecord {
-                id: record.read("id"),
-                item: record.read::<&str, _>("item").into(),
-                quantity: record.read("quantity"),
-                student_name: record.read::<&str, _>("student_name").into(),
-                student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
-                time_out,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        }).collect();
+        self.records = records.map(|record| Self::parse_record(&record)).collect();
 
         Ok(())
     }
@@ -1048,21 +982,7 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
             stmt.into_iter().map(|row| row.unwrap())
         };
 
-        let records = records.map(|record| {
-            let time_out = record.read("time_out");
-            let time_out = chrono::DateTime::parse_from_rfc3339(time_out).unwrap().with_timezone(&chrono::Utc);
-            
-            ItemRecord {
-                id: record.read("id"),
-                item: record.read::<&str, _>("item").into(),
-                quantity: record.read("quantity"),
-                student_name: record.read::<&str, _>("student_name").into(),
-                student_number: record.read::<&str, _>("student_number").into(),
-                receptionist: record.read::<&str, _>("receptionist").into(),
-                time_out,
-                notes: record.read::<&str, _>("notes").into(),
-            }
-        });
+        let records = records.map(|record| Self::parse_record(&record));
         
         for record in records {
             writer.write_record(&[
