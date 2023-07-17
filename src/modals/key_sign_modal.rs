@@ -86,8 +86,9 @@ impl KeySignModal {
 
                         let student_number = self.student_number.trim();
 
-                        error |= filter_required(student_number, &mut self.student_number_error);
+                        // filter student number first so it overwrites with "required" text if blank
                         error |= filter_student_number(student_number, &mut self.student_number_error);
+                        error |= filter_required(student_number, &mut self.student_number_error);
 
                         // Notes
                         

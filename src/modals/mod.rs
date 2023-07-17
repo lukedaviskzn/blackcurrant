@@ -51,8 +51,8 @@ fn filter_student_number(student_number: &str, error_text: &mut Option<String>) 
         },
         // Maybe Student Number
         Err(_) => {
-            if student_number.len() != STUDENT_NUMBER_LENGTH || 
-                    (student_number.chars().enumerate().filter(|(i, c)| *i < 6 && c.is_alphabetic() || *i >= 6 && c.is_numeric()).count() != STUDENT_NUMBER_LENGTH) {
+            if student_number.len() != STUDENT_NUMBER_LENGTH ||
+                    !student_number.chars().enumerate().all(|(i, c)| i < 6 && c.is_ascii_alphabetic() || i >= 6 && c.is_ascii_digit()) {
                 *error_text = Some("Invalid student number.".into());
             }
         },

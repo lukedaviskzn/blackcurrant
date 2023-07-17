@@ -114,9 +114,6 @@ impl GameSignModal {
 
                 // Student Number
                 render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number);
-
-                // Student Receptionist
-                // render_modal_text_entry(ui, "Receptionist", self.receptionist_error, &mut self.receptionist);
                 
                 // Notes
                 render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes);
@@ -155,16 +152,17 @@ impl GameSignModal {
 
                         let student_name = self.student_name.trim();
 
-                        error |= filter_required(student_name, &mut self.student_number_error);
-                        error |= filter_length(student_name, NAME_MAX_LENGTH, &mut self.student_number_error);
+                        error |= filter_required(student_name, &mut self.student_name_error);
+                        error |= filter_length(student_name, NAME_MAX_LENGTH, &mut self.student_name_error);
 
                         // Student Number
                         self.student_number_error = None;
 
                         let student_number = self.student_number.trim();
 
-                        error |= filter_required(student_number, &mut self.student_number_error);
+                        // filter student number first so it overwrites with "required" text if blank
                         error |= filter_student_number(student_number, &mut self.student_number_error);
+                        error |= filter_required(student_number, &mut self.student_number_error);
 
                         // Notes
                         self.notes_error = None;
