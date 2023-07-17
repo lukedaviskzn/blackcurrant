@@ -1,5 +1,7 @@
 use std::{rc::Rc, path::PathBuf};
 
+use tracing::debug;
+
 use crate::app::PAGE_SIZE;
 
 use super::{Page, StorageError, PaginatedStorage, AddibleStorage, NotedStorage, ExportableStorage};
@@ -74,6 +76,8 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
 
             records
         };
+        
+        debug!("refreshed item records");
 
         Ok(())
     }

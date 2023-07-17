@@ -1,5 +1,7 @@
 use std::{rc::Rc, path::PathBuf};
 
+use tracing::debug;
+
 use crate::app::PAGE_SIZE;
 
 use super::{Page, StorageError, PaginatedStorage, format_optional_time, AddibleStorage, TimeReceptionistUpdateableStorage, NotedStorage, QuantitySignableStorage, ExportableStorage};
@@ -75,6 +77,8 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
 
             records
         };
+        
+        debug!("refreshed game records");
 
         Ok(())
     }

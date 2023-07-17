@@ -1,5 +1,7 @@
 use std::{rc::Rc, path::PathBuf, thread::JoinHandle};
 
+use tracing::{info, error};
+
 use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 mod embedded {
@@ -57,7 +59,12 @@ impl Default for App {
         let db_dir = db_dir.join("db.sqlite");
 
         let mut connection = rusqlite::Connection::open(&db_dir).expect(&format!("failed to open database file: {db_dir:?}"));
+
+        info!("connected to sqlite database");
+
         embedded::migrations::runner().run(&mut connection).expect("failed to run migrations");
+
+        info!("migrations complete");
 
         let connection = Rc::new(connection);
 
@@ -117,14 +124,16 @@ impl App {
             "fa-solid-900".to_owned(),
             egui::FontData::from_static(include_bytes!("../fonts/fa-solid-900.ttf")),
         );
-    
+
         fonts
             .families
             .entry(egui::FontFamily::Name("icons".into()))
             .or_default()
             .insert(0, "fa-solid-900".to_owned());
-    
+
         ctx.set_fonts(fonts);
+
+        info!("fonts loaded")
     }
     
 }
@@ -146,17 +155,19 @@ impl eframe::App for App {
                 let handle = self.file_save_handle.take().expect("unreachable");
 
                 if let Some(file_save_path) = handle.join().expect("file save thread panicked") {
-                    println!("Saving database backup");
+                    info!("saving database backup");
                     
                     match std::fs::copy(&self.db_dir, file_save_path) {
                         Ok(_) => {
                             self.alert_modal = Some(AlertModal { title: "Backup Successful".into(), description: None });
+                            info!("backup successful");
                         },
                         Err(err) => {
                             self.alert_modal = Some(AlertModal {
                                 title: "Backup Failed".into(),
                                 description: Some(format!("Failed to backup database: {err}")),
                             });
+                            error!("failed to backup database: {err}");
                         },
                     }
                 }
@@ -176,21 +187,23 @@ impl eframe::App for App {
                         RecordType::Item => self.item_records.export_csv(export_path),
                     };
 
-                    println!("Exporting records");
+                    info!("exporting records");
 
                     match result {
                         Ok(_) => {
                             self.alert_modal = Some(AlertModal { title: "Export Successful".into(), description: None });
+                            info!("export successful");
                         },
                         Err(err) => {
                             self.alert_modal = Some(AlertModal {
                                 title: "Export Failed".into(),
-                                description: match err {
+                                description: match &err {
                                     StorageError::DbError(_) => Some("An expected error occurred while accessing the database.".into()),
                                     StorageError::ExportCsvError(err) => Some(format!("Failed to export data: {err}")),
                                     StorageError::ExportIoError(err) => Some(format!("Failed to export data: {err}")),
                                 }
                             });
+                            error!("failed to export: {err}");
                         },
                     }
                 }

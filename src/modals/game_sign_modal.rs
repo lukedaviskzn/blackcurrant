@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::{records::{GameTypeStorage, GameStorage, Storage, QuantitySignableStorage, GameRecord, AddibleStorage}, app::NAME_MAX_LENGTH};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
@@ -185,6 +187,8 @@ impl GameSignModal {
                                 time_in: None,
                                 notes: self.notes.clone(),
                             }).expect("failed to add game record to database");
+
+                            info!("added game record");
                             
                             close_modal = true;
                         }

@@ -91,14 +91,14 @@ pub enum Page {
 }
 
 impl Page {
-    fn clamp(self, count: i64) -> Page {
+    pub fn clamp(self, count: i64) -> Page {
         match self {
             Page::Page(page) => Page::Page(page.clamp(0, (count - 1) / PAGE_SIZE)),
             Page::LastPage => Page::LastPage,
         }
     }
 
-    fn as_i64(&self, count: i64) -> i64 {
+    pub fn as_i64(&self, count: i64) -> i64 {
         let max_page = (count - 1) / PAGE_SIZE;
 
         match &self {

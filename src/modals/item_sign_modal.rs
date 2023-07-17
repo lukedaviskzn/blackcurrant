@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::{records::{ItemTypeStorage, ItemStorage, Storage, ItemRecord, AddibleStorage}, app::{MAX_QUANTITY, NAME_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
@@ -185,6 +187,8 @@ impl ItemSignModal {
                                 notes: self.notes.clone(),
                             });
                             close_modal = true;
+
+                            info!("added item record");
                         }
                     }
                     if ui.button("Cancel").clicked() {

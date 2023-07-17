@@ -1,6 +1,7 @@
 use std::{thread::JoinHandle, path::PathBuf};
 
 use strum::IntoEnumIterator;
+use tracing::info;
 
 use crate::{records::RecordType, app::BACKUP_DATE_TIME_FORMAT};
 
@@ -30,11 +31,15 @@ impl ExportModal {
                         
                         self.export_handle = Some(std::thread::spawn(move || {
                             let record_type_str = record_type.to_string().to_lowercase();
+
+                            info!("opening export save dialogue");
                             
                             let path = rfd::FileDialog::new()
                                 .add_filter("CSV File", &["csv"])
                                 .set_file_name(&format!("{record_type_str}_records_{}.csv", chrono::Local::now().format(BACKUP_DATE_TIME_FORMAT).to_string()))
                                 .save_file();
+
+                            info!("finished export save dialogue");
                             
                             (record_type, path)
                         }));

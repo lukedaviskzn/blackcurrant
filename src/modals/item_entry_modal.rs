@@ -1,4 +1,5 @@
 use egui_extras::{TableBuilder, Column};
+use tracing::debug;
 
 use crate::{records::{ItemTypeStorage, Storage, AddibleStorage, DeletableStorage}, app::NAME_MAX_LENGTH};
 
@@ -95,6 +96,7 @@ impl ItemEntryModal {
 
         if let Some(item) = delete_item {
             item_types.delete(&item).expect("failed to delete item type from database");
+            debug!("deleted item type");
         }
 
         return close_modal;

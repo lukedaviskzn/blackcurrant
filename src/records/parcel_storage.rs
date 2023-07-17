@@ -1,5 +1,7 @@
 use std::{rc::Rc, path::PathBuf};
 
+use tracing::debug;
+
 use crate::app::PAGE_SIZE;
 
 use super::{Page, StorageError, PaginatedStorage, format_optional_time, AddibleStorage, TimeUpdateableStorage, NotedStorage, ExportableStorage};
@@ -73,6 +75,8 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
 
             records
         };
+        
+        debug!("refreshed parcel records");
 
         Ok(())
     }

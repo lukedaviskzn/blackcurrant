@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::{records::TimeReceptionistUpdateableStorage, app::NAME_MAX_LENGTH};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
@@ -61,6 +63,7 @@ impl<I: Copy> SignInModal<I> {
         
         if update_record {
             records.update_receptionist_and_time(self.record_id, &self.receptionist).expect("failed to update receptionist on record");
+            info!("signed in record");
         }
         
         return close_modal;

@@ -1,3 +1,5 @@
+use tracing::info;
+
 use crate::{app::NAME_MAX_LENGTH, records::{ParcelRecord, ParcelStorage, AddibleStorage}};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
@@ -86,6 +88,8 @@ impl ParcelSignModal {
                             }).expect("failed to add parcel record to database");
                             
                             close_modal = true;
+
+                            info!("added parcel record");
                         }
                     }
                     if ui.button("Cancel").clicked() {
