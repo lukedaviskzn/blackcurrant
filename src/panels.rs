@@ -55,7 +55,7 @@ impl KeyPanel {
     
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 pagination(ui, &mut self.page, key_records.count());
-                key_records.set_page(self.page).unwrap();
+                key_records.set_page(self.page).expect(&format!("failed to refresh key records for page: {:?}", self.page));
             });
         });
 
@@ -194,7 +194,7 @@ impl KeyPanel {
 
         if update_notes {
             if let Some(id) = self.current_notes_id {
-                key_records.update_notes(id, &self.current_notes).unwrap();
+                key_records.update_notes(id, &self.current_notes).expect(&format!("failed to update notes for key record: {id}"));
             }
             self.current_notes_id = None;
         }
@@ -221,7 +221,7 @@ impl ParcelPanel {
     
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 pagination(ui, &mut self.page, parcel_records.count());
-                parcel_records.set_page(self.page).unwrap();
+                parcel_records.set_page(self.page).expect(&format!("failed to refresh parcel records for page: {:?}", self.page));
             });
         });
 
@@ -368,12 +368,12 @@ impl ParcelPanel {
         });
 
         if let Some(record_id) = update_record {
-            parcel_records.update_time(record_id).unwrap();
+            parcel_records.update_time(record_id).expect(&format!("failed to update time for parcel record: {record_id}"));
         }
 
         if update_notes {
             if let Some(id) = self.current_notes_id {
-                parcel_records.update_notes(id, &self.current_notes).unwrap();
+                parcel_records.update_notes(id, &self.current_notes).expect(&format!("failed to update notes for parcel record: {id}"));
             }
             self.current_notes_id = None;
         }
@@ -400,7 +400,7 @@ impl GamePanel {
     
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 pagination(ui, &mut self.page, game_records.count());
-                game_records.set_page(self.page).unwrap();
+                game_records.set_page(self.page).expect(&format!("failed to refresh parcel records for page: {:?}", self.page));
             });
         });
 
@@ -540,7 +540,7 @@ impl GamePanel {
 
         if update_notes {
             if let Some(id) = self.current_notes_id {
-                game_records.update_notes(id, &self.current_notes).unwrap();
+                game_records.update_notes(id, &self.current_notes).expect(&format!("failed to update notes for game record: {id}"));
             }
             self.current_notes_id = None;
         }
@@ -566,7 +566,7 @@ impl ItemPanel {
     
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
                 pagination(ui, &mut self.page, item_records.count());
-                item_records.set_page(self.page).unwrap();
+                item_records.set_page(self.page).expect(&format!("failed to refresh parcel records for page: {:?}", self.page));
             });
         });
 
@@ -684,7 +684,7 @@ impl ItemPanel {
 
         if update_notes {
             if let Some(id) = self.current_notes_id {
-                item_records.update_notes(id, &self.current_notes).unwrap();
+                item_records.update_notes(id, &self.current_notes).expect(&format!("failed to update notes for item record: {id}"));
             }
             self.current_notes_id = None;
         }
