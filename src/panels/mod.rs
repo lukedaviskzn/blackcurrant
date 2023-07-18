@@ -8,7 +8,7 @@ pub use parcel_panel::*;
 pub use game_panel::*;
 pub use item_panel::*;
 
-use crate::{records::Page, app::PAGE_SIZE};
+use crate::{records::Page, app::{PAGE_SIZE, NOTES_MAX_LENGTH}};
 
 const PENCIL_ICON: &str = "\u{f303}";
 
@@ -60,7 +60,7 @@ fn render_notes_entry(ui: &mut egui::Ui, record_id: i64, record_notes: &str, cur
     let response = ui.horizontal(|ui| {
         if editing {
             if let Some((_, notes)) = current_notes {
-                if ui.text_edit_singleline(notes).lost_focus() {
+                if ui.add(egui::TextEdit::singleline(notes).char_limit(NOTES_MAX_LENGTH)).lost_focus() {
                     update_notes = current_notes.clone();
                 }
             }

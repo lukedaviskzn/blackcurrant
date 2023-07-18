@@ -57,7 +57,7 @@ impl ItemEntryModal {
                 }
 
                 // Item Name
-                render_modal_text_entry(ui, "Item Name", &self.item_error, &mut self.item);
+                render_modal_text_entry(ui, "Item Name", &self.item_error, &mut self.item, NAME_MAX_LENGTH);
 
                 ui.add_space(4.0);
 

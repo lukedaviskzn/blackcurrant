@@ -1,6 +1,6 @@
 use tracing::info;
 
-use crate::{records::{GameTypeStorage, GameStorage, Storage, QuantitySignableStorage, GameRecord, AddibleStorage}, app::NAME_MAX_LENGTH};
+use crate::{records::{GameTypeStorage, GameStorage, Storage, QuantitySignableStorage, GameRecord, AddibleStorage}, app::{NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
 
@@ -82,7 +82,7 @@ impl GameSignModal {
                     let response = ui.add(egui::TextEdit::singleline(&mut self.quantity_str).desired_width(64.0));
                     
                     if !updated && (response.lost_focus() || response.clicked_elsewhere()) {
-                        self.quantity = self.quantity_str.chars().filter(|c| '0' <= *c && *c <= '9').collect::<String>().parse().unwrap_or(1);
+                        self.quantity = self.quantity_str.chars().filter(|c| c.is_ascii_digit()).collect::<String>().parse().unwrap_or(1);
                         updated = true;
                     }
                     
@@ -112,13 +112,13 @@ impl GameSignModal {
                 ui.add_space(4.0);
 
                 // Student Name
-                render_modal_text_entry(ui, "Student Name", &self.student_name_error, &mut self.student_name);
+                render_modal_text_entry(ui, "Student Name", &self.student_name_error, &mut self.student_name, NAME_MAX_LENGTH);
 
                 // Student Number
-                render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number);
+                render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
                 
                 // Notes
-                render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes);
+                render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes, NOTES_MAX_LENGTH);
 
                 ui.add_space(4.0);
 

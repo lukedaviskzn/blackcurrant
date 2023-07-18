@@ -7,15 +7,18 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4.24"
+confy = "0.5.1"
 csv = "1.2.1"
 dirs = "5.0.1"
 eframe = "0.22.0"
 egui = "0.22.0"
 egui_extras = "0.22.0"
 err-derive = "0.3.1"
+image = "0.24.6"
 refinery = { version = "0.8.10", features = ["rusqlite"] }
 rfd = "0.11.3"
 rusqlite = { version = "0.29.0", features = ["bundled"] }
+serde = "1.0.171"
 strum = { version = "0.25.0", features = ["derive"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"

@@ -80,7 +80,7 @@ impl GameEntryModal {
                 }
 
                 // Game Name
-                render_modal_text_entry(ui, "Game Name", &self.game_error, &mut self.game);
+                render_modal_text_entry(ui, "Game Name", &self.game_error, &mut self.game, NAME_MAX_LENGTH);
 
                 // Quantity
                 ui.label("Quantity");

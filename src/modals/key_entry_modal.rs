@@ -48,7 +48,7 @@ impl KeyEntryModal {
                 }
 
                 // Key Name
-                render_modal_text_entry(ui, "Key Name", &self.key_error, &mut self.key);
+                render_modal_text_entry(ui, "Key Name", &self.key_error, &mut self.key, NAME_MAX_LENGTH);
 
                 ui.add_space(4.0);
 

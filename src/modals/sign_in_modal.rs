@@ -30,7 +30,7 @@ impl<I: Copy> SignInModal<I> {
             .show(ctx, |ui| {
                 
                 // Receptionist
-                render_modal_text_entry(ui, "Receptionist", &self.receptionist_error, &mut self.receptionist);
+                render_modal_text_entry(ui, "Receptionist", &self.receptionist_error, &mut self.receptionist, NAME_MAX_LENGTH);
                 
                 ui.add_space(4.0);
 

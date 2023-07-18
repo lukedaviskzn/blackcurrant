@@ -1,16 +1,25 @@
 use std::{rc::Rc, path::PathBuf, thread::JoinHandle};
 
+use image::EncodableLayout;
 use tracing::{info, error};
 
-use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
-pub const NAME_MAX_LENGTH: usize = 256;
+pub const APP_NAME: &str = "Blackcurrant";
+
+pub const NAME_MAX_LENGTH: usize = 512;
+pub const NOTES_MAX_LENGTH: usize = 512;
 pub const STUDENT_NUMBER_LENGTH: usize = 9;
 pub const STAFF_NUMBER_LENGTH: usize = 8;
 pub const MAX_QUANTITY: i64 = 99;
 pub const DATE_TIME_FORMAT: &str = "%d/%m/%y %H:%M";
 pub const BACKUP_DATE_TIME_FORMAT: &str = "%Y-%m-%d_%H-%M-%S.%f";
 pub const PAGE_SIZE: i64 = 100;
+
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub struct AppConfig {
+    pub facility_name: String,
+}
 
 pub struct App {
     current_panel: RecordType,
@@ -43,11 +52,15 @@ pub struct App {
     exit_modal: Option<ExitModal>,
     export_modal: Option<ExportModal>,
     about_modal: Option<AboutModal>,
+    settings_modal: Option<SettingsModal>,
+
+    icon: egui::TextureHandle,
+    config: AppConfig,
 }
 
-impl Default for App {
-    fn default() -> Self {
-        let db_dir = dirs::data_dir().expect("no application data directory").join("Blackcurrant");
+impl App {
+    pub fn new(cc: &eframe::CreationContext<'_>, icon: image::DynamicImage) -> Self {
+        let db_dir = dirs::data_dir().expect("no application data directory").join(APP_NAME);
 
         std::fs::create_dir_all(&db_dir).expect("failed to create application data directory");
 
@@ -63,7 +76,7 @@ impl Default for App {
 
         let connection = Rc::new(connection);
 
-        Self {
+        let app = App {
             current_panel: RecordType::Key,
 
             file_save_handle: None,
@@ -94,15 +107,21 @@ impl Default for App {
             exit_modal: None,
             export_modal: None,
             about_modal: None,
-        }
-    }
-}
+            settings_modal: None,
 
-impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        let app = Self::default();
+            icon: cc.egui_ctx.load_texture(
+                "logo",
+                egui::ColorImage::from_rgba_unmultiplied(
+                    [icon.width() as usize, icon.height() as usize],
+                    icon.as_rgba8().expect("invalid icon format").as_bytes(),
+                ),
+                Default::default(),
+            ),
+            config: confy::load(APP_NAME, None).unwrap_or_default(),
+        };
         
         App::setup_custom_fonts(&cc.egui_ctx);
+        
         cc.egui_ctx.set_visuals(egui::Visuals {
             dark_mode: true,
             ..Default::default()
@@ -242,6 +261,23 @@ impl eframe::App for App {
             }
         }
 
+        // Settings Modal
+        if let Some(modal) = &mut self.settings_modal {
+            let close_modal = modal.render(ctx);
+
+            if close_modal {
+                if !modal.cancelled {
+                    self.config.facility_name = modal.facility_name.trim().into();
+                    
+                    match confy::store(APP_NAME, None, &self.config) {
+                        Ok(_) => tracing::info!("updated configuration file"),
+                        Err(err) => tracing::error!("failed to write to configuration file: {err}"),
+                    }
+                }
+                self.settings_modal = None;
+            }
+        }
+
         // Key Type Entry Modal
         if let Some(modal) = &mut self.key_entry_modal {
             let close_modal = modal.render(ctx, &mut self.key_types);
@@ -303,6 +339,10 @@ impl eframe::App for App {
                             self.item_entry_modal = Some(ItemEntryModal::default());
                             ui.close_menu();
                         }
+                        if ui.button("Settings").clicked() {
+                            self.settings_modal = Some(SettingsModal::new(&mut self.config));
+                            ui.close_menu();
+                        }
                         if ui.button("About").clicked() {
                             self.about_modal = Some(AboutModal::default());
                             ui.close_menu();
@@ -314,11 +354,18 @@ impl eframe::App for App {
                     });
                 });
 
-                ui.separator();
-    
-                ui.heading("Blackcurrant RMS");
+                ui.add_space(4.0);
 
-                ui.separator();
+                ui.horizontal(|ui| {
+                    ui.image(&self.icon, (22.0, 22.0));
+                    ui.heading(egui::RichText::new(APP_NAME).color(egui::Color32::WHITE));
+                });
+
+                if self.config.facility_name.len() > 0 {
+                    ui.label(&self.config.facility_name);
+                }
+
+                ui.add_space(4.0);
 
                 ui.vertical_centered_justified(|ui| {
                     if ui.button("Keys").clicked() {

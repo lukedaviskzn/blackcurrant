@@ -14,6 +14,7 @@ pub mod exit_modal;
 pub mod alert_modal;
 pub mod export_modal;
 pub mod about_modal;
+pub mod settings_modal;
 
 pub use key_sign_modal::*;
 pub use parcel_sign_modal::*;
@@ -29,10 +30,11 @@ pub use exit_modal::*;
 pub use alert_modal::*;
 pub use export_modal::*;
 pub use about_modal::*;
+pub use settings_modal::*;
 
-fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: &Option<String>, input: &mut String) {
+fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: &Option<String>, input: &mut String, max_length: usize) {
     ui.label(label);
-    ui.text_edit_singleline(input);
+    ui.add(egui::TextEdit::singleline(input).char_limit(max_length));
     
     if let Some(error) = error {
         ui.colored_label(egui::Rgba::from_rgb(0.25, 0.0, 0.0), error);

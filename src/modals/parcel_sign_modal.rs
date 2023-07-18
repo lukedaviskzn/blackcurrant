@@ -1,6 +1,6 @@
 use tracing::info;
 
-use crate::{app::NAME_MAX_LENGTH, records::{ParcelRecord, ParcelStorage, AddibleStorage}};
+use crate::{app::{NAME_MAX_LENGTH, NOTES_MAX_LENGTH}, records::{ParcelRecord, ParcelStorage, AddibleStorage}};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
 
@@ -25,16 +25,16 @@ impl ParcelSignModal {
             .resizable(false)
             .show(ctx, |ui| {
                 // Key
-                render_modal_text_entry(ui, "Parcel Description", &self.parcel_desc_error, &mut self.parcel_desc);
+                render_modal_text_entry(ui, "Parcel Description", &self.parcel_desc_error, &mut self.parcel_desc, NAME_MAX_LENGTH);
 
                 // Student Name
-                render_modal_text_entry(ui, "Recipient Name", &self.student_name_error, &mut self.student_name);
+                render_modal_text_entry(ui, "Recipient Name", &self.student_name_error, &mut self.student_name, NAME_MAX_LENGTH);
 
                 // Receptionist
-                render_modal_text_entry(ui, "Receptionist", &self.receptionist_error, &mut self.receptionist);
+                render_modal_text_entry(ui, "Receptionist", &self.receptionist_error, &mut self.receptionist, NAME_MAX_LENGTH);
                 
                 // Notes
-                render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes);
+                render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes, NOTES_MAX_LENGTH);
 
                 ui.add_space(4.0);
 
