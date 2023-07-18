@@ -7,6 +7,11 @@
     windows_subsystem = "windows"
 )]
 
+mod embedded {
+    use refinery::embed_migrations;
+    embed_migrations!("migrations");
+}
+
 mod app;
 mod records;
 mod modals;

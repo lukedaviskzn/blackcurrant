@@ -4,11 +4,6 @@ use tracing::{info, error};
 
 use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
-mod embedded {
-    use refinery::embed_migrations;
-    embed_migrations!("migrations");
-}
-
 pub const NAME_MAX_LENGTH: usize = 256;
 pub const STUDENT_NUMBER_LENGTH: usize = 9;
 pub const STAFF_NUMBER_LENGTH: usize = 8;
@@ -62,7 +57,7 @@ impl Default for App {
 
         info!("connected to sqlite database");
 
-        embedded::migrations::runner().run(&mut connection).expect("failed to run migrations");
+        crate::embedded::migrations::runner().run(&mut connection).expect("failed to run migrations");
 
         info!("migrations complete");
 
