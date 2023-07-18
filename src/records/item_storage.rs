@@ -129,7 +129,18 @@ impl NotedStorage<ItemRecord, i64> for ItemStorage {
 
 impl ExportableStorage<ItemRecord> for ItemStorage {
     fn fetch_all(&self) -> Result<Vec<ItemRecord>, StorageError> {
-        todo!()
+        let records = {
+            let mut stmt = self.connection.prepare("SELECT * FROM item_records")?;
+            
+            let records = stmt.query_map([], |row| Self::parse_row(row))?
+                .collect::<Result<_, _>>()?;
+
+            records
+        };
+        
+        debug!("fetched all item records");
+
+        Ok(records)
     }
 
     fn csv_headers() -> &'static [&'static str] {

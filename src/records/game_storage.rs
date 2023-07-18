@@ -155,7 +155,18 @@ impl QuantitySignableStorage<&str> for GameStorage {
 
 impl ExportableStorage<GameRecord> for GameStorage {
     fn fetch_all(&self) -> Result<Vec<GameRecord>, StorageError> {
-        todo!()
+        let records = {
+            let mut stmt = self.connection.prepare("SELECT * FROM game_records")?;
+            
+            let records = stmt.query_map([], |row| Self::parse_row(row))?
+                .collect::<Result<_, _>>()?;
+
+            records
+        };
+        
+        debug!("fetched all game records");
+
+        Ok(records)
     }
 
     fn csv_headers() -> &'static [&'static str] {

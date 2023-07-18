@@ -156,7 +156,18 @@ impl SignableStorage<KeyRecord, &str> for KeyStorage {
 
 impl ExportableStorage<KeyRecord> for KeyStorage {
     fn fetch_all(&self) -> Result<Vec<KeyRecord>, StorageError> {
-        todo!()
+        let records = {
+            let mut stmt = self.connection.prepare("SELECT * FROM key_records")?;
+            
+            let records = stmt.query_map([], |row| Self::parse_row(row))?
+                .collect::<Result<_, _>>()?;
+
+            records
+        };
+        
+        debug!("fetched all key records");
+
+        Ok(records)
     }
 
     fn csv_headers() -> &'static [&'static str] {

@@ -142,7 +142,18 @@ impl NotedStorage<ParcelRecord, i64> for ParcelStorage {
 
 impl ExportableStorage<ParcelRecord> for ParcelStorage {
     fn fetch_all(&self) -> Result<Vec<ParcelRecord>, StorageError> {
-        todo!()
+        let records = {
+            let mut stmt = self.connection.prepare("SELECT * FROM parcel_records")?;
+            
+            let records = stmt.query_map([], |row| Self::parse_row(row))?
+                .collect::<Result<_, _>>()?;
+
+            records
+        };
+        
+        debug!("fetched all parcel records");
+
+        Ok(records)
     }
 
     fn csv_headers() -> &'static [&'static str] {
