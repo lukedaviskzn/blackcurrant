@@ -1,4 +1,5 @@
 use egui_extras::{TableBuilder, Column};
+use tracing::info;
 
 use crate::{records::{Page, KeyStorage, KeyTypeStorage, PaginatedStorage, NotedStorage}, modals::{KeySignModal, SignInModal}, app::DATE_TIME_FORMAT};
 
@@ -152,7 +153,7 @@ impl KeyPanel {
         // Update notes down here to avoid mutating while immutably borrowed
         if let Some((id, notes)) = update_notes {
             key_records.update_notes(id, &notes).expect(&format!("failed to update notes for key record: {id}"));
-            self.current_notes = None;
+            info!("updated notes for {id} to {notes:?}");
         }
     }
 }

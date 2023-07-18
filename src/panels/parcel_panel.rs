@@ -161,7 +161,6 @@ impl ParcelPanel {
         if let Some((id, notes)) = update_notes {
             parcel_records.update_notes(id, &notes).expect(&format!("failed to update notes for parcel record: {id}"));
             info!("updated notes for {id} to {notes:?}");
-            self.current_notes = None;
         }
     }
 }

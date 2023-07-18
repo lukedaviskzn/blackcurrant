@@ -19,7 +19,7 @@ mod panels;
 
 fn main() -> eframe::Result<()> {
     let subscriber = tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(tracing::Level::TRACE)
+        .with_max_level(tracing::Level::DEBUG)
         .finish();
     tracing::subscriber::set_global_default(subscriber).expect("setting default tracing subscriber failed");
 
