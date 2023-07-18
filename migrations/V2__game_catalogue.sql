@@ -1,0 +1,4 @@
+CREATE TABLE games (
+    game VARCHAR(512) PRIMARY KEY,
+    quantity INTEGER NOT NULL
+)
