@@ -1,6 +1,6 @@
 # Blackcurrant Reception Management System
 
-![Screenshot of Blackcurrant in operation.](https://github.com/lukedaviskzn/blackcurrant/assets/18900683/1a23a992-1c36-467a-bc08-9f621fe52cfd)
+![Screenshot of Blackcurrant in operation.](https://github.com/lukedaviskzn/blackcurrant/assets/18900683/d80cddce-028e-4932-a947-f0328c6d257f)
 
 Blackcurrant is a reception management system, intended for record keeping in UCT residence receptions.
 
