@@ -12,9 +12,7 @@ jobs:
         with:
           toolchain: stable
       - name: Install Dependencies & Build Tools
-        run: sudo apt update && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev inkscape
-      - name: Rasterize Icon
-        run: inkscape icon/icon.svg --export-type png
+        run: sudo apt update && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
       - name: Build
         uses: actions-rs/cargo@v1
         with:

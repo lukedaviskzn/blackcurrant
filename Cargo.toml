@@ -22,3 +22,6 @@ serde = "1.0.171"
 strum = { version = "0.25.0", features = ["derive"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
+
+[build-dependencies]
+winres = "0.1.12"
