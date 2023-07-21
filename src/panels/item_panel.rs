@@ -1,5 +1,4 @@
 use egui_extras::{TableBuilder, Column};
-use tracing::info;
 
 use crate::{records::{Page, ItemTypeStorage, ItemStorage, NotedStorage, PaginatedStorage}, modals::ItemSignModal, app::DATE_TIME_FORMAT};
 
@@ -130,7 +129,7 @@ impl ItemPanel {
         // Update notes down here to avoid mutating while immutably borrowed
         if let Some((id, notes)) = update_notes {
             item_records.update_notes(id, &notes).expect(&format!("failed to update notes for item record: {id}"));
-            info!("updated notes for {id} to {notes:?}");
+            log::info!("updated notes for {id} to {notes:?}");
         }
     }
 }

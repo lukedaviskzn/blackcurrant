@@ -1,7 +1,6 @@
 use std::{rc::Rc, path::PathBuf, thread::JoinHandle};
 
 use image::EncodableLayout;
-use tracing::{info, error};
 
 use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
@@ -68,11 +67,11 @@ impl App {
 
         let mut connection = rusqlite::Connection::open(&db_dir).expect(&format!("failed to open database file: {db_dir:?}"));
 
-        info!("connected to sqlite database");
+        log::info!("connected to sqlite database");
 
         crate::embedded::migrations::runner().run(&mut connection).expect("failed to run migrations");
 
-        info!("migrations complete");
+        log::info!("migrations complete");
 
         let connection = Rc::new(connection);
 
@@ -147,7 +146,7 @@ impl App {
 
         ctx.set_fonts(fonts);
 
-        info!("fonts loaded")
+        log::info!("fonts loaded");
     }
     
 }
@@ -169,19 +168,19 @@ impl eframe::App for App {
                 let handle = self.file_save_handle.take().expect("unreachable");
 
                 if let Some(file_save_path) = handle.join().expect("file save thread panicked") {
-                    info!("saving database backup");
+                    log::info!("saving database backup");
                     
                     match std::fs::copy(&self.db_dir, file_save_path) {
                         Ok(_) => {
                             self.alert_modal = Some(AlertModal { title: "Backup Successful".into(), description: None });
-                            info!("backup successful");
+                            log::info!("backup successful");
                         },
                         Err(err) => {
                             self.alert_modal = Some(AlertModal {
                                 title: "Backup Failed".into(),
                                 description: Some(format!("Failed to backup database: {err}")),
                             });
-                            error!("failed to backup database: {err}");
+                            log::error!("failed to backup database: {err}");
                         },
                     }
                 }
@@ -201,12 +200,12 @@ impl eframe::App for App {
                         RecordType::Item => self.item_records.export_csv(export_path),
                     };
 
-                    info!("exporting records");
+                    log::info!("exporting records");
 
                     match result {
                         Ok(_) => {
                             self.alert_modal = Some(AlertModal { title: "Export Successful".into(), description: None });
-                            info!("export successful");
+                            log::info!("export successful");
                         },
                         Err(err) => {
                             self.alert_modal = Some(AlertModal {
@@ -217,7 +216,7 @@ impl eframe::App for App {
                                     StorageError::ExportIoError(err) => Some(format!("Failed to export data: {err}")),
                                 }
                             });
-                            error!("failed to export: {err}");
+                            log::error!("failed to export: {err}");
                         },
                     }
                 }
@@ -270,8 +269,8 @@ impl eframe::App for App {
                     self.config.facility_name = modal.facility_name.trim().into();
                     
                     match confy::store(APP_NAME, None, &self.config) {
-                        Ok(_) => tracing::info!("updated configuration file"),
-                        Err(err) => tracing::error!("failed to write to configuration file: {err}"),
+                        Ok(_) => log::info!("updated configuration file"),
+                        Err(err) => log::error!("failed to write to configuration file: {err}"),
                     }
                 }
                 self.settings_modal = None;

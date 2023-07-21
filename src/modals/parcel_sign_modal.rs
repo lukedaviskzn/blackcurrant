@@ -1,5 +1,3 @@
-use tracing::info;
-
 use crate::{app::{NAME_MAX_LENGTH, NOTES_MAX_LENGTH}, records::{ParcelRecord, ParcelStorage, AddibleStorage}};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
@@ -89,7 +87,7 @@ impl ParcelSignModal {
                             
                             close_modal = true;
 
-                            info!("added parcel record");
+                            log::info!("added parcel record");
                         }
                     }
                     if ui.button("Cancel").clicked() {

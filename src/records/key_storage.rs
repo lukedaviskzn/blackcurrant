@@ -1,7 +1,6 @@
 use std::{rc::Rc, path::PathBuf};
 
 use rusqlite::OptionalExtension;
-use tracing::debug;
 
 use crate::app::PAGE_SIZE;
 
@@ -78,7 +77,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
             records
         };
         
-        debug!("refreshed key records");
+        log::debug!("refreshed key records");
 
         Ok(())
     }
@@ -165,7 +164,7 @@ impl ExportableStorage<KeyRecord> for KeyStorage {
             records
         };
         
-        debug!("fetched all key records");
+        log::debug!("fetched all key records");
 
         Ok(records)
     }

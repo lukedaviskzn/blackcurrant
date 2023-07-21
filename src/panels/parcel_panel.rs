@@ -1,5 +1,4 @@
 use egui_extras::{TableBuilder, Column};
-use tracing::info;
 
 use crate::{records::{Page, ParcelStorage, PaginatedStorage, TimeUpdateableStorage, NotedStorage}, modals::ParcelSignModal, app::DATE_TIME_FORMAT};
 
@@ -160,7 +159,7 @@ impl ParcelPanel {
         // Update notes down here to avoid mutating while immutably borrowed
         if let Some((id, notes)) = update_notes {
             parcel_records.update_notes(id, &notes).expect(&format!("failed to update notes for parcel record: {id}"));
-            info!("updated notes for {id} to {notes:?}");
+            log::info!("updated notes for {id} to {notes:?}");
         }
     }
 }

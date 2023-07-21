@@ -1,5 +1,4 @@
 use egui_extras::{TableBuilder, Column};
-use tracing::info;
 
 use crate::{records::{Page, GameTypeStorage, GameStorage, PaginatedStorage, NotedStorage}, modals::{GameSignModal, SignInModal}, app::DATE_TIME_FORMAT};
 
@@ -158,7 +157,7 @@ impl GamePanel {
         // Update notes down here to avoid mutating while immutably borrowed
         if let Some((id, notes)) = update_notes {
             game_records.update_notes(id, &notes).expect(&format!("failed to update notes for game record: {id}"));
-            info!("updated notes for {id} to {notes:?}");
+            log::info!("updated notes for {id} to {notes:?}");
         }
     }
 }

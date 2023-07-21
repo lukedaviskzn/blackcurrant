@@ -1,5 +1,4 @@
 use egui_extras::{TableBuilder, Column};
-use tracing::debug;
 
 use crate::{records::{KeyTypeStorage, Storage, AddibleStorage, DeletableStorage}, app::NAME_MAX_LENGTH};
 
@@ -94,7 +93,7 @@ impl KeyEntryModal {
 
         if let Some(key) = delete_key {
             key_types.delete(&key).expect("failed to delete key type from database");
-            debug!("deleted key type");
+            log::debug!("deleted key type");
         }
 
         return close_modal;

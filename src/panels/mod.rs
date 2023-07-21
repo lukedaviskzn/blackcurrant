@@ -77,7 +77,7 @@ fn render_notes_entry(ui: &mut egui::Ui, record_id: i64, record_notes: &str, cur
     }).response;
 
     // Hide when clicked elsewhere
-    if editing && response.clicked_elsewhere() {
+    if editing && response.clicked_elsewhere() && update_notes.is_none() {
         update_notes = current_notes.take();
     }
 

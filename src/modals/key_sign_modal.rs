@@ -1,5 +1,3 @@
-use tracing::info;
-
 use crate::{records::{KeyTypeStorage, KeyStorage, Storage, SignableStorage, KeyRecord, AddibleStorage}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
@@ -115,7 +113,7 @@ impl KeySignModal {
                             });
                             close_modal = true;
 
-                            info!("added key record");
+                            log::info!("added key record");
                         }
                     }
                     if ui.button("Cancel").clicked() {

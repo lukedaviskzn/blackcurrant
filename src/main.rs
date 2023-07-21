@@ -18,10 +18,7 @@ mod modals;
 mod panels;
 
 fn main() -> eframe::Result<()> {
-    let subscriber = tracing_subscriber::FmtSubscriber::builder()
-        .with_max_level(tracing::Level::DEBUG)
-        .finish();
-    tracing::subscriber::set_global_default(subscriber).expect("setting default tracing subscriber failed");
+    env_logger::init();
 
     let icon = image::load_from_memory(include_bytes!("../icon/icon.png")).expect("failed to read icon");
 

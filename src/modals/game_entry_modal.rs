@@ -1,5 +1,4 @@
 use egui_extras::{TableBuilder, Column};
-use tracing::debug;
 
 use crate::{records::{GameTypeStorage, GameTypeRecord, Storage, AddibleStorage, DeletableStorage}, app::{MAX_QUANTITY, NAME_MAX_LENGTH}};
 
@@ -157,7 +156,7 @@ impl GameEntryModal {
 
         if let Some(game) = delete_game {
             game_types.delete(&game).expect("failed to delete game type from database");
-            debug!("deleted game type");
+            log::debug!("deleted game type");
         }
 
         return close_modal;
