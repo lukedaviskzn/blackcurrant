@@ -19,7 +19,7 @@ image = "0.24.6"
 log = "0.4.19"
 refinery = { version = "0.8.10", features = ["rusqlite"] }
 rfd = "0.11.3"
-rusqlite = { version = "0.29.0", features = ["bundled"] }
+rusqlite = { version = "0.29.0", features = ["bundled", "backup"] }
 serde = "1.0.171"
 strum = { version = "0.25.0", features = ["derive"] }
 

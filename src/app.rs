@@ -1,8 +1,8 @@
-use std::{rc::Rc, path::PathBuf, thread::JoinHandle};
+use std::{path::PathBuf, thread::JoinHandle, sync::{Arc, Mutex}};
 
 use image::EncodableLayout;
 
-use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 pub const APP_NAME: &str = "Blackcurrant";
 
@@ -23,11 +23,11 @@ pub struct AppConfig {
 pub struct App {
     current_panel: RecordType,
 
-    db_dir: std::path::PathBuf,
+    connection: Arc<Mutex<rusqlite::Connection>>,
 
-    file_save_handle: Option<JoinHandle<Option<PathBuf>>>,
-    export_handle: Option<JoinHandle<(RecordType, Option<PathBuf>)>>,
-    // file_load_handle: Option<std::thread::JoinHandle<Option<String>>>,
+    backup_path_handle: Option<JoinHandle<Option<PathBuf>>>,
+    restore_path_handle: Option<JoinHandle<Option<PathBuf>>>,
+    export_path_handle: Option<JoinHandle<(RecordType, Option<PathBuf>)>>,
     
     key_types: KeyTypeStorage,
     game_types: GameTypeStorage,
@@ -52,6 +52,7 @@ pub struct App {
     export_modal: Option<ExportModal>,
     about_modal: Option<AboutModal>,
     settings_modal: Option<SettingsModal>,
+    restore_confirm_modal: Option<ConfirmationModal>,
 
     icon: egui::TextureHandle,
     config: AppConfig,
@@ -73,30 +74,30 @@ impl App {
 
         log::info!("migrations complete");
 
-        let connection = Rc::new(connection);
+        let connection = Arc::new(Mutex::new(connection));
 
         let app = App {
             current_panel: RecordType::Key,
 
-            file_save_handle: None,
-            export_handle: None,
-            // file_load_handle: None,
+            backup_path_handle: None,
+            restore_path_handle: None,
+            export_path_handle: None,
 
-            db_dir,
+            connection: Arc::clone(&connection),
 
-            key_types: KeyTypeStorage::new(Rc::clone(&connection)).expect("failed to initialise key type storage"),
-            game_types: GameTypeStorage::new(Rc::clone(&connection)).expect("failed to initialise game type storage"),
-            item_types: ItemTypeStorage::new(Rc::clone(&connection)).expect("failed to initialise item type storage"),
+            key_types: KeyTypeStorage::new(Arc::clone(&connection)).expect("failed to initialise key type storage"),
+            game_types: GameTypeStorage::new(Arc::clone(&connection)).expect("failed to initialise game type storage"),
+            item_types: ItemTypeStorage::new(Arc::clone(&connection)).expect("failed to initialise item type storage"),
 
             key_panel: KeyPanel::default(),
             parcel_panel: ParcelPanel::default(),
             game_panel: GamePanel::default(),
             item_panel: ItemPanel::default(),
 
-            key_records: KeyStorage::new(Rc::clone(&connection)).expect("failed to initialise key record storage"),
-            parcel_records: ParcelStorage::new(Rc::clone(&connection)).expect("failed to initialise parcel record storage"),
-            game_records: GameStorage::new(Rc::clone(&connection)).expect("failed to initialise game record storage"),
-            item_records: ItemStorage::new(Rc::clone(&connection)).expect("failed to initialise item record storage"),
+            key_records: KeyStorage::new(Arc::clone(&connection)).expect("failed to initialise key record storage"),
+            parcel_records: ParcelStorage::new(Arc::clone(&connection)).expect("failed to initialise parcel record storage"),
+            game_records: GameStorage::new(Arc::clone(&connection)).expect("failed to initialise game record storage"),
+            item_records: ItemStorage::new(Arc::clone(&connection)).expect("failed to initialise item record storage"),
             
             key_entry_modal: None,
             game_entry_modal: None,
@@ -107,6 +108,7 @@ impl App {
             export_modal: None,
             about_modal: None,
             settings_modal: None,
+            restore_confirm_modal: None,
 
             icon: cc.egui_ctx.load_texture(
                 "logo",
@@ -163,14 +165,14 @@ impl eframe::App for App {
 
     fn update(&mut self, ctx: &eframe::egui::Context, frame: &mut eframe::Frame) {
         // Backup file location thread running separately.
-        if let Some(handle) = &self.file_save_handle {
+        if let Some(handle) = &self.backup_path_handle {
             if handle.is_finished() {
-                let handle = self.file_save_handle.take().expect("unreachable");
+                let handle = self.backup_path_handle.take().unwrap();
 
-                if let Some(file_save_path) = handle.join().expect("file save thread panicked") {
+                if let Some(backup_path) = handle.join().expect("backup path thread panicked") {
                     log::info!("saving database backup");
                     
-                    match std::fs::copy(&self.db_dir, file_save_path) {
+                    match self.connection.lock().unwrap().backup(rusqlite::DatabaseName::Main, backup_path, None) {
                         Ok(_) => {
                             self.alert_modal = Some(AlertModal { title: "Backup Successful".into(), description: None });
                             log::info!("backup successful");
@@ -186,11 +188,47 @@ impl eframe::App for App {
                 }
             }
         }
-        
-        // Export file location thread running separately.
-        if let Some(handle) = &self.export_handle {
+
+        // Restore file location thread running separately.
+        if let Some(handle) = &self.restore_path_handle {
             if handle.is_finished() {
-                let handle = self.export_handle.take().expect("unreachable");
+                let handle = self.restore_path_handle.take().unwrap();
+
+                if let Some(restore_path) = handle.join().expect("restore path thread panicked") {
+                    log::info!("restoring from database backup");
+                    
+                    match self.connection.lock().unwrap().restore(rusqlite::DatabaseName::Main, restore_path, None::<Box<dyn Fn(rusqlite::backup::Progress) -> ()>>) {
+                        Ok(_) => {
+
+                            self.alert_modal = Some(AlertModal { title: "Restore Successful".into(), description: None });
+                            log::info!("restore successful");
+                        },
+                        Err(err) => {
+                            self.alert_modal = Some(AlertModal {
+                                title: "Restore Failed".into(),
+                                description: Some(format!("Failed to restore database: {err}")),
+                            });
+                            log::error!("failed to restore database: {err}");
+                        },
+                    }
+                    // after restore, run migrations
+                    crate::embedded::migrations::runner().run(&mut *self.connection.lock().unwrap()).expect("failed to run migrations after restore");
+                    // refresh everything after restore
+                    self.key_types.refresh().expect("failed to refresh key types");
+                    self.game_types.refresh().expect("failed to refresh game types");
+                    self.item_types.refresh().expect("failed to refresh item types");
+                    self.key_records.refresh().expect("failed to refresh key records");
+                    self.parcel_records.refresh().expect("failed to refresh parcel records");
+                    self.game_records.refresh().expect("failed to refresh game records");
+                    self.item_records.refresh().expect("failed to refresh item records");
+                }
+            }
+        }
+
+        // Export file location thread running separately.
+        if let Some(handle) = &self.export_path_handle {
+            if handle.is_finished() {
+                let handle = self.export_path_handle.take().unwrap();
 
                 if let (record_type, Some(export_path)) = handle.join().expect("file export thread panicked") {
                     let result = match record_type {
@@ -246,7 +284,7 @@ impl eframe::App for App {
             let close_modal = modal.render(ctx);
 
             if close_modal {
-                self.export_handle = modal.export_handle.take();
+                self.export_path_handle = modal.path_handle.take();
                 self.export_modal = None;
             }
         }
@@ -274,6 +312,23 @@ impl eframe::App for App {
                     }
                 }
                 self.settings_modal = None;
+            }
+        }
+
+        // Restore Confirmation Modal
+        if let Some(modal) = &mut self.restore_confirm_modal {
+            let close_modal = modal.render(ctx);
+
+            if modal.confirmed {
+                self.restore_path_handle = Some(std::thread::spawn(|| {
+                    rfd::FileDialog::new()
+                        .add_filter("Sqlite DB Backup", &["sqlite"])
+                        .pick_file()
+                }));
+            }
+
+            if close_modal {
+                self.restore_confirm_modal = None;
             }
         }
 
@@ -309,7 +364,7 @@ impl eframe::App for App {
                 egui::menu::bar(ui, |ui| {
                     ui.menu_button("File", |ui| {
                         if ui.button("Save Backup").clicked() {
-                            self.file_save_handle = Some(std::thread::spawn(|| {
+                            self.backup_path_handle = Some(std::thread::spawn(|| {
                                 rfd::FileDialog::new()
                                     .add_filter("Sqlite DB Backup", &["sqlite"])
                                     .set_file_name(&format!("backup_{}.sqlite", chrono::Local::now().format(BACKUP_DATE_TIME_FORMAT).to_string()))
@@ -317,11 +372,15 @@ impl eframe::App for App {
                             }));
                             ui.close_menu();
                         }
-                        // if ui.button("Load Backup").clicked() {
-                        //     self.file_load_handle = Some(std::thread::spawn(|| {
-                        //         rfd::FileDialog::new().pick_file().map(|path| path.display().to_string())
-                        //     }));
-                        // }
+                        if ui.button("Restore Backup").clicked() {
+                            self.restore_confirm_modal = Some(
+                                ConfirmationModal::new(
+                                    "Are you sure?",
+                                    Some("Restoring from a backup will delete all records which are not present in the backup.")
+                                )
+                            );
+                            ui.close_menu();
+                        }
                         if ui.button("Export Records").clicked() {
                             self.export_modal = Some(ExportModal::default());
                             ui.close_menu();

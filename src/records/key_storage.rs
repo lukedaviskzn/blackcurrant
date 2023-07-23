@@ -1,4 +1,4 @@
-use std::{rc::Rc, path::PathBuf};
+use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use rusqlite::OptionalExtension;
 
@@ -19,14 +19,14 @@ pub struct KeyRecord {
 }
 
 pub struct KeyStorage {
-    connection: Rc<rusqlite::Connection>,
+    connection: Arc<Mutex<rusqlite::Connection>>,
     records: Vec<KeyRecord>,
     page: Page,
     count: i64,
 }
 
 impl KeyStorage {
-    pub fn new(connection: Rc<rusqlite::Connection>) -> Result<KeyStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<KeyStorage, StorageError> {
         let mut storage = KeyStorage {
             connection,
             records: vec![],
@@ -60,7 +60,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
     
     fn refresh(&mut self) -> Result<(), StorageError> {
         self.count = {
-            let count = self.connection.prepare("SELECT COUNT(*) AS c FROM key_records")?
+            let count = self.connection.lock().unwrap().prepare("SELECT COUNT(*) AS c FROM key_records")?
                 .query_row([], |row| row.get("c"))?;
             
             count
@@ -69,7 +69,9 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
         let page = self.page.as_i64(self.count);
         
         self.records = {
-            let mut stmt = self.connection.prepare("SELECT * FROM key_records LIMIT ? OFFSET ?")?;
+            let connection = self.connection.lock().unwrap();
+            
+            let mut stmt = connection.prepare("SELECT * FROM key_records LIMIT ? OFFSET ?")?;
             
             let records = stmt.query_map([PAGE_SIZE, page * PAGE_SIZE], |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
@@ -108,7 +110,7 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
 
 impl AddibleStorage<KeyRecord, i64> for KeyStorage {
     fn add(&mut self, record: KeyRecord) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "INSERT INTO key_records (id, key, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, NULL, ?, NULL, ?)",
             [record.key.as_str(), &record.student_name, &record.student_number, &record.time_out.to_rfc3339(), &record.notes])?;
 
@@ -120,7 +122,7 @@ impl AddibleStorage<KeyRecord, i64> for KeyStorage {
 
 impl TimeReceptionistUpdateableStorage<KeyRecord, i64> for KeyStorage {
     fn update_receptionist_and_time(&mut self, id: i64, receptionist: &str) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "UPDATE key_records SET receptionist = ?, time_in = ? WHERE id = ?",
             [receptionist, &chrono::Utc::now().to_rfc3339(), &id.to_string()])?;
 
@@ -132,7 +134,7 @@ impl TimeReceptionistUpdateableStorage<KeyRecord, i64> for KeyStorage {
 
 impl NotedStorage<KeyRecord, i64> for KeyStorage {
     fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "UPDATE key_records SET notes = ? WHERE id = ?",
             [notes, &id.to_string()])?;
 
@@ -144,7 +146,9 @@ impl NotedStorage<KeyRecord, i64> for KeyStorage {
 
 impl SignableStorage<KeyRecord, &str> for KeyStorage {
     fn get_signed_out(&mut self, item_type: &str) -> Result<Option<KeyRecord>, StorageError> {
-        let mut stmt = self.connection.prepare("SELECT * FROM key_records WHERE key = ? AND time_in IS NULL LIMIT 1")?;
+        let connection = self.connection.lock().unwrap();
+        
+        let mut stmt = connection.prepare("SELECT * FROM key_records WHERE key = ? AND time_in IS NULL LIMIT 1")?;
         
         let record = stmt.query_row(&[item_type], |row| Self::parse_row(row))
             .optional()?;
@@ -156,7 +160,9 @@ impl SignableStorage<KeyRecord, &str> for KeyStorage {
 impl ExportableStorage<KeyRecord> for KeyStorage {
     fn fetch_all(&self) -> Result<Vec<KeyRecord>, StorageError> {
         let records = {
-            let mut stmt = self.connection.prepare("SELECT * FROM key_records")?;
+            let connection = self.connection.lock().unwrap();
+            
+            let mut stmt = connection.prepare("SELECT * FROM key_records")?;
             
             let records = stmt.query_map([], |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;

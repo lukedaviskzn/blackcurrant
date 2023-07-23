@@ -7,7 +7,7 @@ use crate::{records::RecordType, app::BACKUP_DATE_TIME_FORMAT};
 #[derive(Debug, Default)]
 pub struct ExportModal {
     pub record_type: RecordType,
-    pub export_handle: Option<JoinHandle<(RecordType, Option<PathBuf>)>>,
+    pub path_handle: Option<JoinHandle<(RecordType, Option<PathBuf>)>>,
 }
 
 impl ExportModal {
@@ -28,7 +28,7 @@ impl ExportModal {
                     if ui.button("Export").clicked() {
                         let record_type = self.record_type;
                         
-                        self.export_handle = Some(std::thread::spawn(move || {
+                        self.path_handle = Some(std::thread::spawn(move || {
                             let record_type_str = record_type.to_string().to_lowercase();
 
                             log::info!("opening export save dialogue");

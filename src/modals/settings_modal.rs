@@ -28,17 +28,16 @@ impl SettingsModal {
                 render_modal_text_entry(ui, "Facility Name", &self.facility_name_error, &mut self.facility_name, NAME_MAX_LENGTH);
                 
                 // Buttons
-                ui.horizontal(|ui| {
-                    ui.add_space(200.0);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    if ui.button("Cancel").clicked() {
+                        close_modal = true;
+                        self.cancelled = true;
+                    }
                     if ui.button("OK").clicked() {
                         if !filter_length(&self.facility_name, NAME_MAX_LENGTH, &mut self.facility_name_error) {
                             // only close if no error
                             close_modal = true;
                         }
-                    }
-                    if ui.button("Cancel").clicked() {
-                        close_modal = true;
-                        self.cancelled = true;
                     }
                 });
             });

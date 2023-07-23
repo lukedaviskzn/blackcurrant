@@ -1,14 +1,14 @@
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use super::{StorageError, Storage, AddibleStorage, DeletableStorage};
 
 pub struct KeyTypeStorage {
-    connection: Rc<rusqlite::Connection>,
+    connection: Arc<Mutex<rusqlite::Connection>>,
     records: Vec<String>,
 }
 
 impl KeyTypeStorage {
-    pub fn new(connection: Rc<rusqlite::Connection>) -> Result<KeyTypeStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<KeyTypeStorage, StorageError> {
         let mut storage = KeyTypeStorage {
             connection,
             records: vec![],
@@ -22,7 +22,9 @@ impl KeyTypeStorage {
 
 impl Storage<String, &str> for KeyTypeStorage {
     fn refresh(&mut self) -> Result<(), StorageError> {
-        let mut stmt = self.connection.prepare("SELECT * FROM keys ORDER BY key")?;
+        let connection = self.connection.lock().unwrap();
+        
+        let mut stmt = connection.prepare("SELECT * FROM keys ORDER BY key")?;
         
         let records = stmt
             .query_map([], |row| Self::parse_row(row))?
@@ -30,6 +32,8 @@ impl Storage<String, &str> for KeyTypeStorage {
         
         self.records = records;
 
+        log::debug!("refreshed key types");
+        
         Ok(())
     }
 
@@ -48,7 +52,7 @@ impl Storage<String, &str> for KeyTypeStorage {
 
 impl AddibleStorage<String, &str> for KeyTypeStorage {
     fn add(&mut self, key: String) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "INSERT INTO keys (key) VALUES (?)",
             [&key])?;
 
@@ -60,7 +64,7 @@ impl AddibleStorage<String, &str> for KeyTypeStorage {
 
 impl DeletableStorage<String, &str> for KeyTypeStorage {
     fn delete(&mut self, key: &str) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "DELETE FROM keys WHERE key = ?",
             [&key])?;
 

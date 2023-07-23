@@ -15,6 +15,7 @@ pub mod alert_modal;
 pub mod export_modal;
 pub mod about_modal;
 pub mod settings_modal;
+pub mod confirmation_modal;
 
 pub use key_sign_modal::*;
 pub use parcel_sign_modal::*;
@@ -31,6 +32,7 @@ pub use alert_modal::*;
 pub use export_modal::*;
 pub use about_modal::*;
 pub use settings_modal::*;
+pub use confirmation_modal::*;
 
 fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: &Option<String>, input: &mut String, max_length: usize) {
     ui.label(label);
@@ -45,7 +47,7 @@ fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: &Option<String
 
 fn filter_student_number(student_number: &str, error_text: &mut Option<String>) -> bool {
     match student_number.parse::<i64>() {
-        // Maybe Stuff Number
+        // Maybe Staff Number
         Ok(_) => {
             if student_number.len() != STAFF_NUMBER_LENGTH {
                 *error_text = Some("Invalid staff number.".into());

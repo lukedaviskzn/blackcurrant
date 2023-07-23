@@ -1,4 +1,4 @@
-use std::{rc::Rc, path::PathBuf};
+use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
@@ -18,14 +18,14 @@ pub struct GameRecord {
 }
 
 pub struct GameStorage {
-    connection: Rc<rusqlite::Connection>,
+    connection: Arc<Mutex<rusqlite::Connection>>,
     records: Vec<GameRecord>,
     page: Page,
     count: i64,
 }
 
 impl GameStorage {
-    pub fn new(connection: Rc<rusqlite::Connection>) -> Result<GameStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<GameStorage, StorageError> {
         let mut storage = GameStorage {
             connection,
             records: vec![],
@@ -59,7 +59,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
     
     fn refresh(&mut self) -> Result<(), StorageError> {
         self.count = {
-            let count = self.connection.prepare("SELECT COUNT(*) AS c FROM game_records")?
+            let count = self.connection.lock().unwrap().prepare("SELECT COUNT(*) AS c FROM game_records")?
                 .query_row([], |row| row.get("c"))?;
             
             count
@@ -68,7 +68,9 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
         let page = self.page.as_i64(self.count);
         
         self.records = {
-            let mut stmt = self.connection.prepare("SELECT * FROM game_records LIMIT ? OFFSET ?")?;
+            let connection = self.connection.lock().unwrap();
+            
+            let mut stmt = connection.prepare("SELECT * FROM game_records LIMIT ? OFFSET ?")?;
             
             let records = stmt.query_map([PAGE_SIZE, page * PAGE_SIZE], |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
@@ -108,7 +110,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
 
 impl AddibleStorage<GameRecord, i64> for GameStorage {
     fn add(&mut self, record: GameRecord) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "INSERT INTO game_records (id, game, quantity, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, ?, NULL, ?, NULL, ?)",
             [record.game.as_str(), &record.quantity.to_string(), &record.student_name, &record.student_number, &record.time_out.to_rfc3339(), &record.notes])?;
 
@@ -120,7 +122,7 @@ impl AddibleStorage<GameRecord, i64> for GameStorage {
 
 impl TimeReceptionistUpdateableStorage<GameRecord, i64> for GameStorage {
     fn update_receptionist_and_time(&mut self, id: i64, receptionist: &str) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "UPDATE game_records SET receptionist = ?, time_in = ? WHERE id = ?",
             [receptionist, &chrono::Utc::now().to_rfc3339(), &id.to_string()])?;
 
@@ -132,7 +134,7 @@ impl TimeReceptionistUpdateableStorage<GameRecord, i64> for GameStorage {
 
 impl NotedStorage<GameRecord, i64> for GameStorage {
     fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "UPDATE game_records SET notes = ? WHERE id = ?",
             [notes, &id.to_string()])?;
 
@@ -144,7 +146,7 @@ impl NotedStorage<GameRecord, i64> for GameStorage {
 
 impl QuantitySignableStorage<&str> for GameStorage {
     fn get_signed_out(&mut self, item_type: &str) -> Result<i64, StorageError> {
-        let num_signed_out = self.connection.prepare("SELECT IFNULL(SUM(quantity), 0) AS s FROM game_records WHERE game = ? AND time_in IS NULL")?
+        let num_signed_out = self.connection.lock().unwrap().prepare("SELECT IFNULL(SUM(quantity), 0) AS s FROM game_records WHERE game = ? AND time_in IS NULL")?
             .query_row([item_type], |row| row.get::<_, i64>("s"))?;
 
         Ok(num_signed_out)
@@ -154,7 +156,9 @@ impl QuantitySignableStorage<&str> for GameStorage {
 impl ExportableStorage<GameRecord> for GameStorage {
     fn fetch_all(&self) -> Result<Vec<GameRecord>, StorageError> {
         let records = {
-            let mut stmt = self.connection.prepare("SELECT * FROM game_records")?;
+            let connection = self.connection.lock().unwrap();
+            
+            let mut stmt = connection.prepare("SELECT * FROM game_records")?;
             
             let records = stmt.query_map([], |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;

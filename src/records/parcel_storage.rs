@@ -1,4 +1,4 @@
-use std::{rc::Rc, path::PathBuf};
+use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
@@ -16,14 +16,14 @@ pub struct ParcelRecord {
 }
 
 pub struct ParcelStorage {
-    connection: Rc<rusqlite::Connection>,
+    connection: Arc<Mutex<rusqlite::Connection>>,
     records: Vec<ParcelRecord>,
     page: Page,
     count: i64,
 }
 
 impl ParcelStorage {
-    pub fn new(connection: Rc<rusqlite::Connection>) -> Result<ParcelStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<ParcelStorage, StorageError> {
         let mut storage = ParcelStorage {
             connection,
             records: vec![],
@@ -57,7 +57,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
     
     fn refresh(&mut self) -> Result<(), StorageError> {
         self.count = {
-            let count = self.connection.prepare("SELECT COUNT(*) AS c FROM parcel_records")?
+            let count = self.connection.lock().unwrap().prepare("SELECT COUNT(*) AS c FROM parcel_records")?
                 .query_row([], |row| row.get("c"))?;
             
             count
@@ -66,7 +66,9 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
         let page = self.page.as_i64(self.count);
         
         self.records = {
-            let mut stmt = self.connection.prepare("SELECT * FROM parcel_records LIMIT ? OFFSET ?")?;
+            let connection = self.connection.lock().unwrap();
+            
+            let mut stmt = connection.prepare("SELECT * FROM parcel_records LIMIT ? OFFSET ?")?;
             
             let records = stmt.query_map([PAGE_SIZE, page * PAGE_SIZE], |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
@@ -104,7 +106,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
 
 impl AddibleStorage<ParcelRecord, i64> for ParcelStorage {
     fn add(&mut self, record: ParcelRecord) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "INSERT INTO parcel_records (id, parcel_desc, student_name, receptionist, time_in, time_out, notes) VALUES (NULL, ?, ?, ?, ?, NULL, ?)",
             [record.parcel_desc.as_str(), &record.student_name, &record.receptionist, &record.time_in.to_rfc3339(), &record.notes])?;
 
@@ -116,7 +118,7 @@ impl AddibleStorage<ParcelRecord, i64> for ParcelStorage {
 
 impl TimeUpdateableStorage<ParcelRecord, i64> for ParcelStorage {
     fn update_time(&mut self, id: i64) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "UPDATE parcel_records SET time_out = ? WHERE id = ?",
             [chrono::Utc::now().to_rfc3339().as_str(), &id.to_string()])?;
 
@@ -128,7 +130,7 @@ impl TimeUpdateableStorage<ParcelRecord, i64> for ParcelStorage {
 
 impl NotedStorage<ParcelRecord, i64> for ParcelStorage {
     fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
-        self.connection.execute(
+        self.connection.lock().unwrap().execute(
             "UPDATE parcel_records SET notes = ? WHERE id = ?",
             [notes, &id.to_string()])?;
 
@@ -141,7 +143,9 @@ impl NotedStorage<ParcelRecord, i64> for ParcelStorage {
 impl ExportableStorage<ParcelRecord> for ParcelStorage {
     fn fetch_all(&self) -> Result<Vec<ParcelRecord>, StorageError> {
         let records = {
-            let mut stmt = self.connection.prepare("SELECT * FROM parcel_records")?;
+            let connection = self.connection.lock().unwrap();
+            
+            let mut stmt = connection.prepare("SELECT * FROM parcel_records")?;
             
             let records = stmt.query_map([], |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
