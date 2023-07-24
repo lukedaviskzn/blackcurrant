@@ -1,6 +1,6 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{GameTypeStorage, GameTypeRecord, Storage, AddibleStorage, DeletableStorage}, app::{MAX_QUANTITY, NAME_MAX_LENGTH}};
+use crate::{records::{GameTypeStorage, Storage, InsertableStorage, DeletableStorage, NewGameTypeRecord}, app::{MAX_QUANTITY, NAME_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
 
@@ -138,8 +138,8 @@ impl GameEntryModal {
 
                         // Entry valid, add record
                         if !error {
-                            game_types.add(GameTypeRecord {
-                                game: self.game.clone(),
+                            game_types.insert(NewGameTypeRecord {
+                                game: &self.game,
                                 quantity: self.quantity,
                             }).expect("failed to add game type to database");
                             

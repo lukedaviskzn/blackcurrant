@@ -2,18 +2,7 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, AddibleStorage, TimeUpdateableStorage, NotedStorage, ExportableStorage};
-
-#[derive(Debug, Clone)]
-pub struct ParcelRecord {
-    pub id: i64,
-    pub parcel_desc: String,
-    pub student_name: String,
-    pub receptionist: String,
-    pub time_in: chrono::DateTime<chrono::Utc>,
-    pub time_out: Option<chrono::DateTime<chrono::Utc>>,
-    pub notes: String,
-}
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, SignableStorage, NotedStorage, ExportableStorage, ParcelRecord, NewParcelRecord};
 
 pub struct ParcelStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -58,7 +47,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
     fn refresh(&mut self) -> Result<(), StorageError> {
         self.count = {
             let count = self.connection.lock().unwrap().prepare("SELECT COUNT(*) AS c FROM parcel_records")?
-                .query_row([], |row| row.get("c"))?;
+                .query_row((), |row| row.get("c"))?;
             
             count
         };
@@ -70,7 +59,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
             
             let mut stmt = connection.prepare("SELECT * FROM parcel_records LIMIT ? OFFSET ?")?;
             
-            let records = stmt.query_map([PAGE_SIZE, page * PAGE_SIZE], |row| Self::parse_row(row))?
+            let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
 
             records
@@ -104,11 +93,12 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
     }
 }
 
-impl AddibleStorage<ParcelRecord, i64> for ParcelStorage {
-    fn add(&mut self, record: ParcelRecord) -> Result<(), StorageError> {
+impl InsertableStorage<NewParcelRecord<'_>, i64> for ParcelStorage {
+    fn insert(&mut self, record: NewParcelRecord) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "INSERT INTO parcel_records (id, parcel_desc, student_name, receptionist, time_in, time_out, notes) VALUES (NULL, ?, ?, ?, ?, NULL, ?)",
-            [record.parcel_desc.as_str(), &record.student_name, &record.receptionist, &record.time_in.to_rfc3339(), &record.notes])?;
+            (record.parcel_desc, record.student_name, record.receptionist, chrono::Utc::now().to_rfc3339(), record.notes)
+        )?;
 
         self.refresh()?;
         
@@ -116,11 +106,12 @@ impl AddibleStorage<ParcelRecord, i64> for ParcelStorage {
     }
 }
 
-impl TimeUpdateableStorage<ParcelRecord, i64> for ParcelStorage {
-    fn update_time(&mut self, id: i64) -> Result<(), StorageError> {
+impl SignableStorage<ParcelRecord, i64> for ParcelStorage {
+    fn signin(&mut self, id: i64) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "UPDATE parcel_records SET time_out = ? WHERE id = ?",
-            [chrono::Utc::now().to_rfc3339().as_str(), &id.to_string()])?;
+            (chrono::Utc::now().to_rfc3339(), id)
+        )?;
 
         self.refresh()?;
         
@@ -132,7 +123,8 @@ impl NotedStorage<ParcelRecord, i64> for ParcelStorage {
     fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "UPDATE parcel_records SET notes = ? WHERE id = ?",
-            [notes, &id.to_string()])?;
+            (notes, id)
+        )?;
 
         self.refresh()?;
         
@@ -147,7 +139,7 @@ impl ExportableStorage<ParcelRecord> for ParcelStorage {
             
             let mut stmt = connection.prepare("SELECT * FROM parcel_records")?;
             
-            let records = stmt.query_map([], |row| Self::parse_row(row))?
+            let records = stmt.query_map((), |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
 
             records

@@ -1,6 +1,6 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{Page, ParcelStorage, PaginatedStorage, TimeUpdateableStorage, NotedStorage}, modals::ParcelSignModal, app::DATE_TIME_FORMAT};
+use crate::{records::{Page, ParcelStorage, PaginatedStorage, NotedStorage, SignableStorage}, modals::ParcelSignModal, app::DATE_TIME_FORMAT};
 
 use super::{pagination, render_notes_entry};
 
@@ -153,7 +153,7 @@ impl ParcelPanel {
 
         // Update time down here to avoid mutating while immutably borrowed
         if let Some(record_id) = update_record {
-            parcel_records.update_time(record_id).expect(&format!("failed to update time for parcel record: {record_id}"));
+            parcel_records.signin(record_id).expect(&format!("failed to update time for parcel record: {record_id}"));
         }
 
         // Update notes down here to avoid mutating while immutably borrowed

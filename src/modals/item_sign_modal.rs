@@ -1,4 +1,4 @@
-use crate::{records::{ItemTypeStorage, ItemStorage, Storage, ItemRecord, AddibleStorage}, app::{MAX_QUANTITY, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+use crate::{records::{ItemTypeStorage, ItemStorage, Storage, InsertableStorage, NewItemRecord}, app::{MAX_QUANTITY, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
 
@@ -174,15 +174,13 @@ impl ItemSignModal {
 
                         // Entry valid, add record
                         if !error {
-                            add_record = Some(ItemRecord {
-                                id: 0,
-                                item: self.item.clone(),
+                            add_record = Some(NewItemRecord {
+                                item: &self.item,
                                 quantity: self.quantity,
-                                student_name: self.student_name.clone(),
-                                student_number: self.student_number.to_uppercase(),
-                                receptionist: self.receptionist.clone(),
-                                time_out: chrono::Utc::now(),
-                                notes: self.notes.clone(),
+                                student_name: &self.student_name,
+                                student_number: &self.student_number,
+                                receptionist: &self.receptionist,
+                                notes: &self.notes,
                             });
                             close_modal = true;
 
@@ -196,7 +194,7 @@ impl ItemSignModal {
             });
         
         if let Some(record) = add_record {
-            item_records.add(record).expect("failed to add item record to database");
+            item_records.insert(record).expect("failed to add item record to database");
         }
         
         return close_modal;

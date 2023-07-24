@@ -2,20 +2,7 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, AddibleStorage, TimeReceptionistUpdateableStorage, NotedStorage, QuantitySignableStorage, ExportableStorage};
-
-#[derive(Debug, Clone)]
-pub struct GameRecord {
-    pub id: i64,
-    pub game: String,
-    pub quantity: i64,
-    pub student_name: String,
-    pub student_number: String,
-    pub receptionist: Option<String>,
-    pub time_out: chrono::DateTime<chrono::Utc>,
-    pub time_in: Option<chrono::DateTime<chrono::Utc>>,
-    pub notes: String,
-}
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, GameRecord, NewGameRecord};
 
 pub struct GameStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -36,6 +23,13 @@ impl GameStorage {
         storage.refresh()?;
 
         Ok(storage)
+    }
+    
+    pub fn get_signed_out(&mut self, item_type: &str) -> Result<i64, StorageError> {
+        let num_signed_out = self.connection.lock().unwrap().prepare("SELECT IFNULL(SUM(quantity), 0) AS s FROM game_records WHERE game = ? AND time_in IS NULL")?
+            .query_row((item_type,), |row| row.get::<_, i64>("s"))?;
+
+        Ok(num_signed_out)
     }
 }
 
@@ -60,7 +54,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
     fn refresh(&mut self) -> Result<(), StorageError> {
         self.count = {
             let count = self.connection.lock().unwrap().prepare("SELECT COUNT(*) AS c FROM game_records")?
-                .query_row([], |row| row.get("c"))?;
+                .query_row((), |row| row.get("c"))?;
             
             count
         };
@@ -72,7 +66,7 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
             
             let mut stmt = connection.prepare("SELECT * FROM game_records LIMIT ? OFFSET ?")?;
             
-            let records = stmt.query_map([PAGE_SIZE, page * PAGE_SIZE], |row| Self::parse_row(row))?
+            let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
 
             records
@@ -108,11 +102,12 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
     }
 }
 
-impl AddibleStorage<GameRecord, i64> for GameStorage {
-    fn add(&mut self, record: GameRecord) -> Result<(), StorageError> {
+impl InsertableStorage<NewGameRecord<'_>, i64> for GameStorage {
+    fn insert(&mut self, record: NewGameRecord) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "INSERT INTO game_records (id, game, quantity, student_name, student_number, receptionist, time_out, time_in, notes) VALUES (NULL, ?, ?, ?, ?, NULL, ?, NULL, ?)",
-            [record.game.as_str(), &record.quantity.to_string(), &record.student_name, &record.student_number, &record.time_out.to_rfc3339(), &record.notes])?;
+            (record.game, record.quantity, record.student_name, record.student_number.to_uppercase(), chrono::Utc::now().to_rfc3339(), record.notes)
+        )?;
 
         self.refresh()?;
         
@@ -120,11 +115,12 @@ impl AddibleStorage<GameRecord, i64> for GameStorage {
     }
 }
 
-impl TimeReceptionistUpdateableStorage<GameRecord, i64> for GameStorage {
-    fn update_receptionist_and_time(&mut self, id: i64, receptionist: &str) -> Result<(), StorageError> {
+impl ReceptionistSignableStorage<GameRecord, i64> for GameStorage {
+    fn signin(&mut self, id: i64, receptionist: &str) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "UPDATE game_records SET receptionist = ?, time_in = ? WHERE id = ?",
-            [receptionist, &chrono::Utc::now().to_rfc3339(), &id.to_string()])?;
+            (receptionist, chrono::Utc::now().to_rfc3339(), id)
+        )?;
 
         self.refresh()?;
         
@@ -136,20 +132,12 @@ impl NotedStorage<GameRecord, i64> for GameStorage {
     fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "UPDATE game_records SET notes = ? WHERE id = ?",
-            [notes, &id.to_string()])?;
+            (notes, id)
+        )?;
 
         self.refresh()?;
         
         Ok(())
-    }
-}
-
-impl QuantitySignableStorage<&str> for GameStorage {
-    fn get_signed_out(&mut self, item_type: &str) -> Result<i64, StorageError> {
-        let num_signed_out = self.connection.lock().unwrap().prepare("SELECT IFNULL(SUM(quantity), 0) AS s FROM game_records WHERE game = ? AND time_in IS NULL")?
-            .query_row([item_type], |row| row.get::<_, i64>("s"))?;
-
-        Ok(num_signed_out)
     }
 }
 
@@ -160,7 +148,7 @@ impl ExportableStorage<GameRecord> for GameStorage {
             
             let mut stmt = connection.prepare("SELECT * FROM game_records")?;
             
-            let records = stmt.query_map([], |row| Self::parse_row(row))?
+            let records = stmt.query_map((), |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
 
             records

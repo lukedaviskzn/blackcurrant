@@ -2,19 +2,7 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, AddibleStorage, NotedStorage, ExportableStorage};
-
-#[derive(Debug, Clone)]
-pub struct ItemRecord {
-    pub id: i64,
-    pub item: String,
-    pub quantity: i64,
-    pub student_name: String,
-    pub student_number: String,
-    pub receptionist: String,
-    pub time_out: chrono::DateTime<chrono::Utc>,
-    pub notes: String,
-}
+use super::{Page, StorageError, PaginatedStorage, InsertableStorage, NotedStorage, ExportableStorage, ItemRecord, NewItemRecord};
 
 pub struct ItemStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -59,7 +47,7 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
     fn refresh(&mut self) -> Result<(), StorageError> {
         self.count = {
             let count = self.connection.lock().unwrap().prepare("SELECT COUNT(*) AS c FROM item_records")?
-                .query_row([], |row| row.get("c"))?;
+                .query_row((), |row| row.get("c"))?;
             
             count
         };
@@ -71,7 +59,7 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
             
             let mut stmt = connection.prepare("SELECT * FROM item_records LIMIT ? OFFSET ?")?;
             
-            let records = stmt.query_map([PAGE_SIZE, page * PAGE_SIZE], |row| Self::parse_row(row))?
+            let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
 
             records
@@ -103,11 +91,12 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
     }
 }
 
-impl AddibleStorage<ItemRecord, i64> for ItemStorage {
-    fn add(&mut self, record: ItemRecord) -> Result<(), StorageError> {
+impl InsertableStorage<NewItemRecord<'_>, i64> for ItemStorage {
+    fn insert(&mut self, record: NewItemRecord) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "INSERT INTO item_records (id, item, quantity, student_name, student_number, receptionist, time_out, notes) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?)",
-            [record.item.as_str(), &record.quantity.to_string(), &record.student_name, &record.student_number, &record.receptionist, &record.time_out.to_rfc3339(), &record.notes])?;
+            (record.item, record.quantity, record.student_name, record.student_number.to_uppercase(), record.receptionist, chrono::Utc::now().to_rfc3339(), record.notes)
+        )?;
 
         self.refresh()?;
         
@@ -119,7 +108,7 @@ impl NotedStorage<ItemRecord, i64> for ItemStorage {
     fn update_notes(&mut self, id: i64, notes: &str) -> Result<(), StorageError> {
         self.connection.lock().unwrap().execute(
             "UPDATE item_records SET notes = ? WHERE id = ?",
-            [notes, &id.to_string()])?;
+            (notes, id))?;
 
         self.refresh()?;
         
@@ -134,7 +123,7 @@ impl ExportableStorage<ItemRecord> for ItemStorage {
             
             let mut stmt = connection.prepare("SELECT * FROM item_records")?;
             
-            let records = stmt.query_map([], |row| Self::parse_row(row))?
+            let records = stmt.query_map((), |row| Self::parse_row(row))?
                 .collect::<Result<_, _>>()?;
 
             records

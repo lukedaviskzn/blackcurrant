@@ -1,6 +1,6 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{KeyTypeStorage, Storage, AddibleStorage, DeletableStorage}, app::NAME_MAX_LENGTH};
+use crate::{records::{KeyTypeStorage, Storage, InsertableStorage, DeletableStorage}, app::NAME_MAX_LENGTH};
 
 use super::render_modal_text_entry;
 
@@ -80,7 +80,7 @@ impl KeyEntryModal {
 
                         // Entry valid, add record
                         if !error {
-                            key_types.add(self.key.clone()).expect("failed to add key type to database");
+                            key_types.insert(&self.key).expect("failed to add key type to database");
                             
                             self.key.clear();
                         }

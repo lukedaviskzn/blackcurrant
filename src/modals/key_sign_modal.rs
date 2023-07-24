@@ -1,4 +1,4 @@
-use crate::{records::{KeyTypeStorage, KeyStorage, Storage, SignableStorage, KeyRecord, AddibleStorage}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+use crate::{records::{KeyTypeStorage, KeyStorage, Storage, InsertableStorage, NewKeyRecord}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
 
@@ -100,16 +100,11 @@ impl KeySignModal {
 
                         // Entry valid, add record
                         if !error {
-                            add_record = Some(KeyRecord {
-                                id: 0,
-                                key: self.key.clone(),
-                                student_name: self.student_name.clone(),
-                                student_number: self.student_number.to_uppercase(),
-                                // receptionist: self.receptionist.clone(),
-                                receptionist: None,
-                                time_out: chrono::Utc::now(),
-                                time_in: None,
-                                notes: self.notes.clone(),
+                            add_record = Some(NewKeyRecord {
+                                key: &self.key,
+                                student_name: &self.student_name,
+                                student_number: &self.student_number,
+                                notes: &self.notes,
                             });
                             close_modal = true;
 
@@ -123,7 +118,7 @@ impl KeySignModal {
             });
         
         if let Some(record) = add_record {
-            key_records.add(record).expect("failed to add key record to database");
+            key_records.insert(record).expect("failed to add key record to database");
         }
         
         return close_modal;
