@@ -1,4 +1,4 @@
-use crate::{app::{NAME_MAX_LENGTH, NOTES_MAX_LENGTH}, records::{ParcelRecord, ParcelStorage, AddibleStorage}};
+use crate::{app::{NAME_MAX_LENGTH, NOTES_MAX_LENGTH}, records::{ParcelStorage, InsertableStorage, NewParcelRecord}};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
 
@@ -75,14 +75,11 @@ impl ParcelSignModal {
 
                         // Entry valid, add record
                         if !error {
-                            parcel_records.add(ParcelRecord {
-                                id: 0,
-                                parcel_desc: self.parcel_desc.clone(),
-                                student_name: self.student_name.clone(),
-                                receptionist: self.receptionist.clone(),
-                                time_in: chrono::Utc::now(),
-                                time_out: None,
-                                notes: self.notes.clone(),
+                            parcel_records.insert(NewParcelRecord {
+                                parcel_desc: &self.parcel_desc,
+                                student_name: &self.student_name,
+                                receptionist: &self.receptionist,
+                                notes: &self.notes,
                             }).expect("failed to add parcel record to database");
                             
                             close_modal = true;

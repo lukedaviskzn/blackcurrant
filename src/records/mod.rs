@@ -3,6 +3,7 @@ use std::{fmt::Display, path::PathBuf};
 use err_derive::Error;
 use strum::EnumIter;
 
+pub mod models;
 pub mod key_storage;
 pub mod parcel_storage;
 pub mod game_storage;
@@ -11,6 +12,7 @@ pub mod key_type_storage;
 pub mod game_type_storage;
 pub mod item_type_storage;
 
+pub use models::*;
 pub use key_storage::*;
 pub use parcel_storage::*;
 pub use game_storage::*;
@@ -67,12 +69,6 @@ impl Display for RecordType {
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct GameTypeRecord {
-    pub game: String,
-    pub quantity: i64,
-}
-
 #[derive(Debug, Error)]
 pub enum StorageError {
     #[error(display = "Database operation failed. {}", _0)]
@@ -124,32 +120,24 @@ pub trait PaginatedStorage<T, I: Copy> {
     fn parse_row(row: &rusqlite::Row) -> Result<T, rusqlite::Error>;
 }
 
-pub trait AddibleStorage<T, I: Copy> {
-    fn add(&mut self, record_info: T) -> Result<(), StorageError>;
+pub trait InsertableStorage<T, I: Copy> {
+    fn insert(&mut self, record_info: T) -> Result<(), StorageError>;
 }
 
 pub trait DeletableStorage<T, I: Copy> {
     fn delete(&mut self, id: I) -> Result<(), StorageError>;
 }
 
-pub trait TimeUpdateableStorage<T, I: Copy> {
-    fn update_time(&mut self, id: I) -> Result<(), StorageError>;
+pub trait SignableStorage<T, I: Copy> {
+    fn signin(&mut self, id: I) -> Result<(), StorageError>;
 }
 
-pub trait TimeReceptionistUpdateableStorage<T, I: Copy> {
-    fn update_receptionist_and_time(&mut self, id: I, receptionist: &str) -> Result<(), StorageError>;
+pub trait ReceptionistSignableStorage<T, I: Copy> {
+    fn signin(&mut self, id: I, receptionist: &str) -> Result<(), StorageError>;
 }
 
 pub trait NotedStorage<T, I: Copy> {
     fn update_notes(&mut self, id: I, note: &str) -> Result<(), StorageError>;
-}
-
-pub trait SignableStorage<T, IT: Copy> {
-    fn get_signed_out(&mut self, item_type: IT) -> Result<Option<T>, StorageError>;
-}
-
-pub trait QuantitySignableStorage<T: Copy> {
-    fn get_signed_out(&mut self, item_type: T) -> Result<i64, StorageError>;
 }
 
 pub trait ExportableStorage<T> {

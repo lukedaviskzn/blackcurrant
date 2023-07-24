@@ -1,6 +1,6 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{ItemTypeStorage, Storage, AddibleStorage, DeletableStorage}, app::NAME_MAX_LENGTH};
+use crate::{records::{ItemTypeStorage, Storage, InsertableStorage, DeletableStorage}, app::NAME_MAX_LENGTH};
 
 use super::{render_modal_text_entry, filter_required, filter_length};
 
@@ -82,7 +82,7 @@ impl ItemEntryModal {
 
                         // Entry valid, add record
                         if !error {
-                            item_types.add(self.item.clone()).expect("failed to add item type to database");
+                            item_types.insert(&self.item).expect("failed to add item type to database");
                             
                             self.item.clear();
                         }

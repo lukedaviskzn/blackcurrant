@@ -1,4 +1,4 @@
-use crate::{records::{GameTypeStorage, GameStorage, Storage, QuantitySignableStorage, GameRecord, AddibleStorage}, app::{NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+use crate::{records::{GameTypeStorage, GameStorage, Storage, InsertableStorage, NewGameRecord}, app::{NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
 
 use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
 
@@ -173,17 +173,12 @@ impl GameSignModal {
 
                         // Entry valid, add record
                         if !error {
-                            game_records.add(GameRecord {
-                                id: 0,
-                                game: self.game.clone(),
+                            game_records.insert(NewGameRecord {
+                                game: &self.game,
                                 quantity: self.quantity,
-                                student_name: self.student_name.clone(),
-                                student_number: self.student_number.to_uppercase(),
-                                // receptionist: self.receptionist.clone(),
-                                receptionist: None,
-                                time_out: chrono::Utc::now(),
-                                time_in: None,
-                                notes: self.notes.clone(),
+                                student_name: &self.student_name,
+                                student_number: &self.student_number,
+                                notes: &self.notes,
                             }).expect("failed to add game record to database");
 
                             log::info!("added game record");
