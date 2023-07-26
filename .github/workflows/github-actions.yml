@@ -1,0 +1,12 @@
+name: Compilation Check
+run-name: Compilation Check
+on: [push]
+jobs:
+  Explore-GitHub-Actions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Dependencies & Build Tools
+        run: sudo apt update && sudo apt-get install -y libclang-dev libgtk-3-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev libssl-dev
+      - name: Build
+        run: cargo build --verbose

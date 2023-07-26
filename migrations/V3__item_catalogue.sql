@@ -1,0 +1,3 @@
+CREATE TABLE items (
+    item VARCHAR(512) PRIMARY KEY
+)

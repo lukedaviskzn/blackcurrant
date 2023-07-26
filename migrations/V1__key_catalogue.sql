@@ -1,0 +1,3 @@
+CREATE TABLE keys (
+    `key` VARCHAR(512) PRIMARY KEY
+)
