@@ -1,8 +1,10 @@
 use std::{path::PathBuf, sync::{Arc, Mutex}};
 
+use rusqlite::OptionalExtension;
+
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, SignableStorage, NotedStorage, ExportableStorage, ParcelRecord, NewParcelRecord};
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, SignableStorage, NotedStorage, ExportableStorage, ParcelRecord, NewParcelRecord, CountWithin};
 
 pub struct ParcelStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -174,5 +176,21 @@ impl ExportableStorage<ParcelRecord> for ParcelStorage {
 
     fn export_csv(&self, path: PathBuf) -> Result<(), StorageError> {
         super::export_csv(self, path)
+    }
+}
+
+impl CountWithin for ParcelStorage {
+    fn count_within(&self, start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>) -> Result<i64, StorageError> {
+        let conn = self.connection.lock().unwrap();
+
+        let mut stmt = conn.prepare("SELECT COUNT(*) AS c FROM parcel_records WHERE ? <= time_out AND time_out < ?")?;
+
+        let start = start.with_timezone(&chrono::Utc).to_rfc3339();
+        let end = end.with_timezone(&chrono::Utc).to_rfc3339();
+
+        let records = stmt.query_row((start, end), |row| row.get::<_, i64>("c"))
+            .optional()?.unwrap_or(0);
+
+        Ok(records)
     }
 }

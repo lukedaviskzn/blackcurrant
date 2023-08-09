@@ -2,7 +2,7 @@ use std::{path::PathBuf, thread::JoinHandle, sync::{Arc, Mutex}};
 
 use image::EncodableLayout;
 
-use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal, SummaryModal, BackupModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 pub const APP_NAME: &str = "Blackcurrant";
 
@@ -11,13 +11,35 @@ pub const NOTES_MAX_LENGTH: usize = 512;
 pub const STUDENT_NUMBER_LENGTH: usize = 9;
 pub const STAFF_NUMBER_LENGTH: usize = 8;
 pub const MAX_QUANTITY: i64 = 99;
-pub const DATE_TIME_FORMAT: &str = "%d/%m/%y %H:%M";
+pub const DATE_TIME_FORMAT: &str = "%d/%m/%Y %H:%M";
 pub const BACKUP_DATE_TIME_FORMAT: &str = "%Y-%m-%d_%H-%M-%S.%f";
 pub const PAGE_SIZE: i64 = 100;
+pub const ROW_HEIGHT: f32 = 20.0;
+pub const COL_MIN_WIDTH: f32 = 64.0;
+pub const COL_MAX_WIDTH: f32 = 128.0;
+pub const COL_SMALL_INITIAL_WIDTH: f32 = 92.0;
+pub const COL_LARGE_INITIAL_WIDTH: f32 = 160.0;
 
-#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
+pub const CONFIRMATION_TITLE: &str = "Are you sure?";
+pub const RESTORE_CONFIRM_TEXT: &str = "Restoring from a backup will delete all records which are not present in the backup.";
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AppConfig {
     pub facility_name: String,
+    pub turso_db: String,
+    pub client_id: String,
+    pub auth_token: Option<String>,
+}
+
+impl Default for AppConfig {
+    fn default() -> Self {
+        Self {
+            facility_name: "".into(),
+            turso_db: "".into(),
+            client_id: uuid::Uuid::new_v4().as_hyphenated().to_string(),
+            auth_token: None,
+        }
+    }
 }
 
 pub struct App {
@@ -52,7 +74,9 @@ pub struct App {
     export_modal: Option<ExportModal>,
     about_modal: Option<AboutModal>,
     settings_modal: Option<SettingsModal>,
-    restore_confirm_modal: Option<ConfirmationModal>,
+    local_restore_confirm_modal: Option<ConfirmationModal>,
+    summary_modal: Option<SummaryModal>,
+    backup_modal: Option<BackupModal>,
 
     icon: egui::TextureHandle,
     config: AppConfig,
@@ -108,7 +132,9 @@ impl App {
             export_modal: None,
             about_modal: None,
             settings_modal: None,
-            restore_confirm_modal: None,
+            local_restore_confirm_modal: None,
+            summary_modal: None,
+            backup_modal: None,
 
             icon: cc.egui_ctx.load_texture(
                 "logo",
@@ -316,7 +342,7 @@ impl eframe::App for App {
         }
 
         // Restore Confirmation Modal
-        if let Some(modal) = &mut self.restore_confirm_modal {
+        if let Some(modal) = &mut self.local_restore_confirm_modal {
             let close_modal = modal.render(ctx);
 
             if modal.confirmed {
@@ -328,7 +354,25 @@ impl eframe::App for App {
             }
 
             if close_modal {
-                self.restore_confirm_modal = None;
+                self.local_restore_confirm_modal = None;
+            }
+        }
+
+        // Summary Modal
+        if let Some(modal) = &mut self.summary_modal {
+            let close_modal = modal.render(ctx, &self.key_records, &self.parcel_records, &self.game_records, &self.item_records);
+
+            if close_modal {
+                self.summary_modal = None;
+            }
+        }
+
+        // Backup Modal
+        if let Some(modal) = &mut self.backup_modal {
+            let close_modal = modal.render(ctx, &mut self.key_records, &mut self.parcel_records, &mut self.game_records, &mut self.item_records, &mut self.key_types, &mut self.game_types, &mut self.item_types);
+
+            if close_modal {
+                self.backup_modal = None;
             }
         }
 
@@ -363,24 +407,6 @@ impl eframe::App for App {
             .show(ctx, |ui| {
                 egui::menu::bar(ui, |ui| {
                     ui.menu_button("File", |ui| {
-                        if ui.button("Save Backup").clicked() {
-                            self.backup_path_handle = Some(std::thread::spawn(|| {
-                                rfd::FileDialog::new()
-                                    .add_filter("Sqlite DB Backup", &["sqlite"])
-                                    .set_file_name(&format!("backup_{}.sqlite", chrono::Local::now().format(BACKUP_DATE_TIME_FORMAT).to_string()))
-                                    .save_file()
-                            }));
-                            ui.close_menu();
-                        }
-                        if ui.button("Restore Backup").clicked() {
-                            self.restore_confirm_modal = Some(
-                                ConfirmationModal::new(
-                                    "Are you sure?",
-                                    Some("Restoring from a backup will delete all records which are not present in the backup.")
-                                )
-                            );
-                            ui.close_menu();
-                        }
                         if ui.button("Export Records").clicked() {
                             self.export_modal = Some(ExportModal::default());
                             ui.close_menu();
@@ -397,6 +423,10 @@ impl eframe::App for App {
                             self.item_entry_modal = Some(ItemEntryModal::default());
                             ui.close_menu();
                         }
+                        if ui.button("Summary").clicked() {
+                            self.summary_modal = Some(SummaryModal::default());
+                            ui.close_menu();
+                        }
                         if ui.button("Settings").clicked() {
                             self.settings_modal = Some(SettingsModal::new(&mut self.config));
                             ui.close_menu();
@@ -407,6 +437,30 @@ impl eframe::App for App {
                         }
                         if ui.button("Quit").clicked() {
                             self.exit_modal = Some(ExitModal::default());
+                            ui.close_menu();
+                        }
+                    });
+                    ui.menu_button("Backup", |ui| {
+                        if ui.button("Online Backups").clicked() {
+                            self.backup_modal = Some(BackupModal::new(Arc::clone(&self.connection), &self.config));
+                            ui.close_menu();
+                        }
+                        if ui.button("Save Local Backup").clicked() {
+                            self.backup_path_handle = Some(std::thread::spawn(|| {
+                                rfd::FileDialog::new()
+                                    .add_filter("Sqlite DB Backup", &["sqlite"])
+                                    .set_file_name(&format!("backup_{}.sqlite", chrono::Local::now().format(BACKUP_DATE_TIME_FORMAT).to_string()))
+                                    .save_file()
+                            }));
+                            ui.close_menu();
+                        }
+                        if ui.button("Restore Local Backup").clicked() {
+                            self.local_restore_confirm_modal = Some(
+                                ConfirmationModal::new(
+                                    CONFIRMATION_TITLE,
+                                    Some(RESTORE_CONFIRM_TEXT)
+                                )
+                            );
                             ui.close_menu();
                         }
                     });

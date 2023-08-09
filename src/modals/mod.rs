@@ -16,6 +16,8 @@ pub mod export_modal;
 pub mod about_modal;
 pub mod settings_modal;
 pub mod confirmation_modal;
+pub mod summary_modal;
+pub mod backup_modal;
 
 pub use key_sign_modal::*;
 pub use parcel_sign_modal::*;
@@ -33,6 +35,8 @@ pub use export_modal::*;
 pub use about_modal::*;
 pub use settings_modal::*;
 pub use confirmation_modal::*;
+pub use summary_modal::*;
+pub use backup_modal::*;
 
 fn render_modal_text_entry(ui: &mut egui::Ui, label: &str, error: &Option<String>, input: &mut String, max_length: usize) {
     ui.label(label);

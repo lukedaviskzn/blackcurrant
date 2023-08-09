@@ -147,6 +147,14 @@ pub trait ExportableStorage<T> {
     fn export_csv(&self, path: PathBuf) -> Result<(), StorageError>;
 }
 
+pub trait Summary {
+    fn summary(&self, start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>) -> Result<Vec<(String, i64)>, StorageError>;
+}
+
+pub trait CountWithin {
+    fn count_within(&self, start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>) -> Result<i64, StorageError>;
+}
+
 fn export_csv<T, S: ExportableStorage<T>>(storage: &S, mut path: PathBuf) -> Result<(), StorageError> {
     path = set_export_path_extention(path);
 

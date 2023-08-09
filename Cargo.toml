@@ -16,12 +16,16 @@ egui_extras = "0.22.0"
 env_logger = "0.10.0"
 err-derive = "0.3.1"
 image = "0.24.6"
+libsql-client = { version = "0.31.9", default-features = false, features = ["reqwest_backend", "mapping_names_to_values_in_rows"] }
 log = "0.4.19"
 refinery = { version = "0.8.10", features = ["rusqlite"] }
 rfd = "0.11.3"
 rusqlite = { version = "0.29.0", features = ["bundled", "backup"] }
 serde = "1.0.171"
 strum = { version = "0.25.0", features = ["derive"] }
+tempfile = "3.7.1"
+tokio = { version = "1.29.1", features = ["full"] }
+uuid = { version = "1.4.1", features = ["v4"] }
 
 [build-dependencies]
 winres = "0.1.12"
