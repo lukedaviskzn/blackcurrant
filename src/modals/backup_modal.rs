@@ -35,6 +35,15 @@ struct OnlineBackup {
     time: chrono::DateTime<chrono::Utc>,
 }
 
+// Backup Table Schema
+// CREATE TABLE backups (
+//     id INTEGER PRIMARY KEY AUTOINCREMENT,
+//     client_id TEXT NOT NULL,
+//     backup_time TEXT NOT NULL,
+//     backup_time TEXT NOT NULL,
+//     backup_contents BLOB NOT NULL
+// );
+
 impl OnlineBackup {
     fn parse_row(row: Row) -> Option<OnlineBackup> {
         let id = row.values.get(0)?;
@@ -97,8 +106,7 @@ impl BackupModal {
                 let client_id = config.client_id.clone();
     
                 Some(runtime.spawn(async move {
-                    log::info!("connecting to backup database...");
-    
+                    log::info!("connecting to backup database");
                     tx.send(Message::Status("Connecting to backup server...".into())).unwrap();
     
                     let client = Client::from_config(Config {
@@ -119,7 +127,7 @@ impl BackupModal {
                     while let Some(instruction) = rx.recv().await {
                         match instruction {
                             Instruction::GetBackups => {
-                                log::info!("fetching backups");
+                                log::debug!("fetching backups");
     
                                 let results = client.execute(Statement::with_args(
                                     "SELECT id, backup_time FROM backups WHERE client_id = ? ORDER BY backup_time",
@@ -132,7 +140,7 @@ impl BackupModal {
                                     });
                                 
                                 if let Ok(backups) = results {
-                                    log::info!("fetched backups");
+                                    log::trace!("fetched backups");
 
                                     // sleep because otherwise people will not notice that something happened
                                     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -146,7 +154,7 @@ impl BackupModal {
                                 }
                             },
                             Instruction::CreateBackup(bytes) => {
-                                log::info!("creating backup");
+                                log::debug!("creating backup");
                                 
                                 let result = client.execute(Statement::with_args(
                                     "INSERT INTO backups (id, client_id, backup_time, backup_contents) VALUES (NULL, ?, ?, ?)",
@@ -154,7 +162,7 @@ impl BackupModal {
                                 )).await;
                                 
                                 if result.is_ok() {
-                                    log::info!("created backup");
+                                    log::trace!("created backup");
 
                                     // sleep because otherwise people will not notice that something happened
                                     std::thread::sleep(std::time::Duration::from_millis(500));
@@ -178,7 +186,7 @@ impl BackupModal {
                                 }
                             },
                             Instruction::GetBackup(id, reason) => {
-                                log::info!("fetching backup contents");
+                                log::debug!("fetching backup contents");
     
                                 let result = client.execute(Statement::with_args(
                                     "SELECT backup_contents FROM backups WHERE id = ?",
@@ -197,7 +205,7 @@ impl BackupModal {
                                 
                                 if let Ok(contents) = result {
                                     if let Some(contents) = contents {
-                                        log::info!("fetched backup contents");
+                                        log::trace!("fetched backup contents");
 
                                         // sleep because otherwise people will not notice that something happened
                                         std::thread::sleep(std::time::Duration::from_millis(500));
@@ -215,20 +223,20 @@ impl BackupModal {
                                 }
                             },
                             Instruction::DeleteBackup(id) => {
-                                log::info!("deleting backup {id}");
+                                log::debug!("deleting backup {id}");
     
                                 let results = client.execute(Statement::with_args(
                                     "DELETE FROM backups WHERE id = ?",
                                     args!(id)
                                 )).await;
                                 
-                                if results.is_err() {
+                                if results.is_ok() {
+                                    log::trace!("deleted backup {id}");
+                                    tx.send(Message::BackupDeleted).unwrap();
+                                } else {
                                     log::error!("failed to delete backup {id}");
                                     tx.send(Message::ActionFailed).unwrap();
                                     tx.send(Message::Status("Failed to delete backup.".into())).unwrap();
-                                } else {
-                                    log::info!("deleted backup {id}");
-                                    tx.send(Message::BackupDeleted).unwrap();
                                 }
                             },
                         }
@@ -402,7 +410,7 @@ impl BackupModal {
                         
                         if let Ok(_) = local_conn.backup(rusqlite::DatabaseName::Main, tmp.path(), None) {
                             if let Ok(bytes) = std::fs::read(tmp.path()) {
-                                log::info!("uploading backup");
+                                log::trace!("sending backup to db thread");
                                 self.loading = true;
                                 self.tx.send(Instruction::CreateBackup(bytes)).unwrap();
                             } else {
