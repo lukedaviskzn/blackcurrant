@@ -1,6 +1,6 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{Page, ParcelStorage, PaginatedStorage, NotedStorage, SignableStorage}, modals::ParcelSignModal, app::DATE_TIME_FORMAT};
+use crate::{records::{Page, ParcelStorage, PaginatedStorage, NotedStorage, SignableStorage}, modals::ParcelSignModal, app::{DATE_TIME_FORMAT, ROW_HEIGHT, COL_MAX_WIDTH, COL_MIN_WIDTH, COL_SMALL_INITIAL_WIDTH, COL_LARGE_INITIAL_WIDTH}};
 
 use super::{pagination, render_notes_entry};
 
@@ -45,13 +45,13 @@ impl ParcelPanel {
                 .striped(true)
                 .stick_to_bottom(true)
                 .max_scroll_height(f32::INFINITY)
-                .column(Column::auto().at_least(64.0).at_most(128.0).resizable(true))
-                .column(Column::auto().at_least(64.0).at_most(128.0).resizable(true))
-                .column(Column::initial(160.0).at_least(64.0).clip(true).resizable(true))
-                .column(Column::initial(92.0).at_least(64.0).clip(true).resizable(true))
-                .column(Column::initial(92.0).at_least(64.0).clip(true).resizable(true))
-                .column(Column::remainder().at_least(64.0).clip(true).resizable(true))
-                .header(32.0, |mut header| {
+                .column(Column::auto().at_most(COL_MAX_WIDTH).resizable(true))
+                .column(Column::auto().at_most(COL_MAX_WIDTH).resizable(true))
+                .column(Column::initial(COL_LARGE_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
+                .column(Column::initial(COL_SMALL_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
+                .column(Column::initial(COL_SMALL_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
+                .column(Column::remainder().at_least(COL_MIN_WIDTH).clip(true).resizable(true))
+                .header(ROW_HEIGHT, |mut header| {
                     header.col(|ui| {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("Time In").strong());
@@ -85,7 +85,7 @@ impl ParcelPanel {
                 })
                 .body(|mut body| {
                     for record in parcel_records.get_all() {
-                        body.row(32.0, |mut row| {
+                        body.row(ROW_HEIGHT, |mut row| {
                             // time_in
                             // time_out
                             // parcel_desc
