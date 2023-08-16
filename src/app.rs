@@ -2,7 +2,7 @@ use std::{path::PathBuf, thread::JoinHandle, sync::{Arc, Mutex}};
 
 use image::EncodableLayout;
 
-use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal, SummaryModal, BackupModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal, SummaryModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 pub const APP_NAME: &str = "Blackcurrant";
 
@@ -76,7 +76,6 @@ pub struct App {
     settings_modal: Option<SettingsModal>,
     local_restore_confirm_modal: Option<ConfirmationModal>,
     summary_modal: Option<SummaryModal>,
-    backup_modal: Option<BackupModal>,
 
     icon: egui::TextureHandle,
     config: AppConfig,
@@ -134,7 +133,6 @@ impl App {
             settings_modal: None,
             local_restore_confirm_modal: None,
             summary_modal: None,
-            backup_modal: None,
 
             icon: cc.egui_ctx.load_texture(
                 "logo",
@@ -367,15 +365,6 @@ impl eframe::App for App {
             }
         }
 
-        // Backup Modal
-        if let Some(modal) = &mut self.backup_modal {
-            let close_modal = modal.render(ctx, &mut self.key_records, &mut self.parcel_records, &mut self.game_records, &mut self.item_records, &mut self.key_types, &mut self.game_types, &mut self.item_types);
-
-            if close_modal {
-                self.backup_modal = None;
-            }
-        }
-
         // Key Type Entry Modal
         if let Some(modal) = &mut self.key_entry_modal {
             let close_modal = modal.render(ctx, &mut self.key_types);
@@ -411,18 +400,6 @@ impl eframe::App for App {
                             self.export_modal = Some(ExportModal::default());
                             ui.close_menu();
                         }
-                        if ui.button("Edit Keys").clicked() {
-                            self.key_entry_modal = Some(KeyEntryModal::default());
-                            ui.close_menu();
-                        }
-                        if ui.button("Edit Games").clicked() {
-                            self.game_entry_modal = Some(GameEntryModal::default());
-                            ui.close_menu();
-                        }
-                        if ui.button("Edit Items").clicked() {
-                            self.item_entry_modal = Some(ItemEntryModal::default());
-                            ui.close_menu();
-                        }
                         if ui.button("Summary").clicked() {
                             self.summary_modal = Some(SummaryModal::default());
                             ui.close_menu();
@@ -440,11 +417,21 @@ impl eframe::App for App {
                             ui.close_menu();
                         }
                     });
-                    ui.menu_button("Backup", |ui| {
-                        if ui.button("Online Backups").clicked() {
-                            self.backup_modal = Some(BackupModal::new(Arc::clone(&self.connection), &self.config));
+                    ui.menu_button("Edit", |ui| {
+                        if ui.button("Edit Keys").clicked() {
+                            self.key_entry_modal = Some(KeyEntryModal::default());
                             ui.close_menu();
                         }
+                        if ui.button("Edit Games").clicked() {
+                            self.game_entry_modal = Some(GameEntryModal::default());
+                            ui.close_menu();
+                        }
+                        if ui.button("Edit Items").clicked() {
+                            self.item_entry_modal = Some(ItemEntryModal::default());
+                            ui.close_menu();
+                        }
+                    });
+                    ui.menu_button("Backup", |ui| {
                         if ui.button("Save Local Backup").clicked() {
                             self.backup_path_handle = Some(std::thread::spawn(|| {
                                 rfd::FileDialog::new()

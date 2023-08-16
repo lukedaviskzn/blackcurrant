@@ -109,15 +109,18 @@ impl SummaryModal {
                     .column(Column::initial(COL_LARGE_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
                     .column(Column::auto().at_least(COL_MIN_WIDTH).at_most(COL_MAX_WIDTH).resizable(false))
                     .body(|mut body| {
+                        let mut total = 0;
+                        self.key_summary.iter().for_each(|s| total += s.1);
+                        
                         body.row(ROW_HEIGHT, |mut row| {
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Key").strong());
+                                    ui.label(egui::RichText::new("Keys").strong());
                                 });
                             });
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Count").strong());
+                                    ui.label(egui::RichText::new(total.to_string()).strong());
                                 });
                             });
                         });
@@ -136,25 +139,19 @@ impl SummaryModal {
                                 });
                             });
                         }
-                
-                        if self.key_summary.len() == 0 {
-                            body.row(ROW_HEIGHT, |mut row| {
-                                row.col(|ui| {
-                                    ui.label("None");
-                                });
-                                row.col(|_| {});
-                            });
-                        }
+                        
+                        let mut total = 0;
+                        self.game_summary.iter().for_each(|s| total += s.1);
 
                         body.row(ROW_HEIGHT, |mut row| {
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Game").strong());
+                                    ui.label(egui::RichText::new("Games").strong());
                                 });
                             });
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Count").strong());
+                                    ui.label(egui::RichText::new(total.to_string()).strong());
                                 });
                             });
                         });
@@ -173,25 +170,19 @@ impl SummaryModal {
                                 });
                             });
                         }
-                
-                        if self.game_summary.len() == 0 {
-                            body.row(ROW_HEIGHT, |mut row| {
-                                row.col(|ui| {
-                                    ui.label("None");
-                                });
-                                row.col(|_| {});
-                            });
-                        }
+
+                        let mut total = 0;
+                        self.item_summary.iter().for_each(|s| total += s.1);
 
                         body.row(ROW_HEIGHT, |mut row| {
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Item").strong());
+                                    ui.label(egui::RichText::new("Items").strong());
                                 });
                             });
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("Count").strong());
+                                    ui.label(egui::RichText::new(total.to_string()).strong());
                                 });
                             });
                         });
@@ -208,15 +199,6 @@ impl SummaryModal {
                                         ui.label(&count.to_string());
                                     });
                                 });
-                            });
-                        }
-                
-                        if self.item_summary.len() == 0 {
-                            body.row(ROW_HEIGHT, |mut row| {
-                                row.col(|ui| {
-                                    ui.label("None");
-                                });
-                                row.col(|_| {});
                             });
                         }
 
