@@ -26,18 +26,12 @@ pub const RESTORE_CONFIRM_TEXT: &str = "Restoring from a backup will delete all 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AppConfig {
     pub facility_name: String,
-    pub turso_db: String,
-    pub client_id: String,
-    pub auth_token: Option<String>,
 }
 
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             facility_name: "".into(),
-            turso_db: "".into(),
-            client_id: uuid::Uuid::new_v4().as_hyphenated().to_string(),
-            auth_token: None,
         }
     }
 }
