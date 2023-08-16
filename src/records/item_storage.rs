@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, InsertableStorage, NotedStorage, ExportableStorage, ItemRecord, NewItemRecord};
+use super::{Page, StorageError, PaginatedStorage, InsertableStorage, NotedStorage, ExportableStorage, ItemRecord, NewItemRecord, Summary};
 
 pub struct ItemStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -160,5 +160,28 @@ impl ExportableStorage<ItemRecord> for ItemStorage {
 
     fn export_csv(&self, path: PathBuf) -> Result<(), StorageError> {
         super::export_csv(self, path)
+    }
+}
+
+impl Summary for ItemStorage {
+    /// find all records with time_out in [start, end)
+    fn summary(&self, start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>) -> Result<Vec<(String, i64)>, StorageError> {
+        fn parse_row(row: &rusqlite::Row) -> Result<(String, i64), rusqlite::Error> {
+            Ok((row.get("item")?, row.get("c")?))
+        }
+
+        let records = {
+            let conn = self.connection.lock().unwrap();
+
+            let mut stmt = conn.prepare("SELECT item, SUM(quantity) AS c FROM item_records WHERE ? <= time_out AND time_out < ? GROUP BY item ORDER BY item")?;
+
+            let start = start.with_timezone(&chrono::Utc).to_rfc3339();
+            let end = end.with_timezone(&chrono::Utc).to_rfc3339();
+
+            let records = stmt.query_map((start, end), |row| parse_row(row))?;
+            records.collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(records)
     }
 }

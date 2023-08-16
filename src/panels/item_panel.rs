@@ -1,6 +1,6 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{Page, ItemTypeStorage, ItemStorage, NotedStorage, PaginatedStorage}, modals::ItemSignModal, app::DATE_TIME_FORMAT};
+use crate::{records::{Page, ItemTypeStorage, ItemStorage, NotedStorage, PaginatedStorage}, modals::ItemSignModal, app::{DATE_TIME_FORMAT, ROW_HEIGHT, COL_MAX_WIDTH, COL_LARGE_INITIAL_WIDTH, COL_SMALL_INITIAL_WIDTH, COL_MIN_WIDTH}};
 
 use super::{pagination, render_notes_entry};
 
@@ -43,13 +43,13 @@ impl ItemPanel {
                 .striped(true)
                 .stick_to_bottom(true)
                 .max_scroll_height(f32::INFINITY)
-                .column(Column::auto().at_least(64.0).at_most(128.0).resizable(true))
-                .column(Column::initial(160.0).at_least(64.0).clip(true).resizable(true))
-                .column(Column::initial(92.0).at_least(64.0).clip(true).resizable(true))
-                .column(Column::auto().at_least(64.0).at_most(128.0).resizable(true))
-                .column(Column::initial(92.0).at_least(64.0).clip(true).resizable(true))
-                .column(Column::remainder().at_least(64.0).clip(true).resizable(true))
-                .header(20.0, |mut header| {
+                .column(Column::auto().at_most(COL_MAX_WIDTH).resizable(true))
+                .column(Column::initial(COL_LARGE_INITIAL_WIDTH).at_least(COL_MAX_WIDTH).clip(true).resizable(true))
+                .column(Column::initial(COL_SMALL_INITIAL_WIDTH).at_least(COL_MAX_WIDTH).clip(true).resizable(true))
+                .column(Column::auto().at_least(COL_MIN_WIDTH).at_most(COL_MAX_WIDTH).resizable(true))
+                .column(Column::initial(COL_SMALL_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
+                .column(Column::remainder().at_least(COL_MIN_WIDTH).clip(true).resizable(true))
+                .header(ROW_HEIGHT, |mut header| {
                     header.col(|ui| {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("Time Out").strong());
@@ -83,7 +83,7 @@ impl ItemPanel {
                 })
                 .body(|mut body| {
                     for record in item_records.get_all() {
-                        body.row(30.0, |mut row| {
+                        body.row(ROW_HEIGHT, |mut row| {
                             // Time Out
                             row.col(|ui| {
                                 ui.horizontal(|ui| {

@@ -2,7 +2,7 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, GameRecord, NewGameRecord};
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, GameRecord, NewGameRecord, Summary};
 
 pub struct GameStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -187,5 +187,28 @@ impl ExportableStorage<GameRecord> for GameStorage {
 
     fn export_csv(&self, path: PathBuf) -> Result<(), StorageError> {
         super::export_csv(self, path)
+    }
+}
+
+impl Summary for GameStorage {
+    /// find all records with time_out in [start, end)
+    fn summary(&self, start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>) -> Result<Vec<(String, i64)>, StorageError> {
+        fn parse_row(row: &rusqlite::Row) -> Result<(String, i64), rusqlite::Error> {
+            Ok((row.get("game")?, row.get("c")?))
+        }
+
+        let records = {
+            let conn = self.connection.lock().unwrap();
+
+            let mut stmt = conn.prepare("SELECT game, SUM(quantity) AS c FROM game_records WHERE ? <= time_out AND time_out < ? GROUP BY game ORDER BY game")?;
+
+            let start = start.with_timezone(&chrono::Utc).to_rfc3339();
+            let end = end.with_timezone(&chrono::Utc).to_rfc3339();
+
+            let records = stmt.query_map((start, end), |row| parse_row(row))?;
+            records.collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(records)
     }
 }

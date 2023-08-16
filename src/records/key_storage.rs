@@ -4,7 +4,7 @@ use rusqlite::OptionalExtension;
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, KeyRecord, NewKeyRecord};
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, KeyRecord, NewKeyRecord, Summary};
 
 pub struct KeyStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
@@ -190,5 +190,28 @@ impl ExportableStorage<KeyRecord> for KeyStorage {
     
     fn export_csv(&self, path: PathBuf) -> Result<(), StorageError> {
         super::export_csv(self, path)
+    }
+}
+
+impl Summary for KeyStorage {
+    /// find all records with time_out in [start, end)
+    fn summary(&self, start: chrono::DateTime<chrono::Utc>, end: chrono::DateTime<chrono::Utc>) -> Result<Vec<(String, i64)>, StorageError> {
+        fn parse_row(row: &rusqlite::Row) -> Result<(String, i64), rusqlite::Error> {
+            Ok((row.get("key")?, row.get("c")?))
+        }
+
+        let records = {
+            let conn = self.connection.lock().unwrap();
+
+            let mut stmt = conn.prepare("SELECT `key`, COUNT(*) AS c FROM key_records WHERE ? <= time_out AND time_out < ? GROUP BY key ORDER BY key")?;
+
+            let start = start.with_timezone(&chrono::Utc).to_rfc3339();
+            let end = end.with_timezone(&chrono::Utc).to_rfc3339();
+
+            let records = stmt.query_map((start, end), |row| parse_row(row))?;
+            records.collect::<Result<Vec<_>, _>>()?
+        };
+
+        Ok(records)
     }
 }
