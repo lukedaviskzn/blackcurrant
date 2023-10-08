@@ -14,8 +14,8 @@ mod embedded {
 
 mod app;
 mod records;
-mod modals;
-mod panels;
+mod modal;
+mod panel;
 
 fn main() -> eframe::Result<()> {
     env_logger::init();
@@ -31,10 +31,10 @@ fn main() -> eframe::Result<()> {
         }),
         ..Default::default()
     };
-    
+
     eframe::run_native(
         "Blackcurrant",
         native_options,
-        Box::new(|cc| Box::new(app::App::new(cc, icon))),
+        Box::new(|cc| Box::new(app::App::new(cc))),
     )
 }

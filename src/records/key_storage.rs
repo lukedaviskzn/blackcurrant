@@ -4,19 +4,21 @@ use rusqlite::OptionalExtension;
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, KeyRecord, NewKeyRecord, Summary};
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, KeyRecord, NewKeyRecord, Summary, StudentInfo};
 
 pub struct KeyStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
+    student_info: Arc<Mutex<StudentInfo>>,
     records: Vec<KeyRecord>,
     page: Page,
     count: i64,
 }
 
 impl KeyStorage {
-    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<KeyStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>, student_info: Arc<Mutex<StudentInfo>>) -> Result<KeyStorage, StorageError> {
         let mut storage = KeyStorage {
             connection,
+            student_info,
             records: vec![],
             page: Page::LastPage,
             count: 0,
@@ -66,17 +68,21 @@ impl PaginatedStorage<KeyRecord, i64> for KeyStorage {
         };
 
         let page = self.page.as_i64(self.count);
-        
-        self.records = {
-            let connection = self.connection.lock().unwrap();
-            
-            let mut stmt = connection.prepare("SELECT * FROM key_records LIMIT ? OFFSET ?")?;
-            
-            let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
-                .collect::<Result<_, _>>()?;
 
-            records
-        };
+        let mut connection = self.connection.lock().unwrap();
+        
+        {
+            self.records = {
+                let mut stmt = connection.prepare("SELECT * FROM key_records LIMIT ? OFFSET ?")?;
+                
+                let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
+                    .collect::<Result<_, _>>()?;
+
+                records
+            };
+
+            self.student_info.lock().unwrap().refresh(&mut connection)?;
+        }
         
         log::debug!("refreshed key records");
 

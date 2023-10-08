@@ -2,19 +2,21 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, GameRecord, NewGameRecord, Summary};
+use super::{Page, StorageError, PaginatedStorage, format_optional_time, InsertableStorage, ReceptionistSignableStorage, NotedStorage, ExportableStorage, GameRecord, NewGameRecord, Summary, StudentInfo};
 
 pub struct GameStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
+    student_info: Arc<Mutex<StudentInfo>>,
     records: Vec<GameRecord>,
     page: Page,
     count: i64,
 }
 
 impl GameStorage {
-    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<GameStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>, student_info: Arc<Mutex<StudentInfo>>) -> Result<GameStorage, StorageError> {
         let mut storage = GameStorage {
             connection,
+            student_info,
             records: vec![],
             page: Page::LastPage,
             count: 0,
@@ -61,16 +63,20 @@ impl PaginatedStorage<GameRecord, i64> for GameStorage {
 
         let page = self.page.as_i64(self.count);
         
-        self.records = {
-            let connection = self.connection.lock().unwrap();
+        {
+            let mut connection = self.connection.lock().unwrap();
             
-            let mut stmt = connection.prepare("SELECT * FROM game_records LIMIT ? OFFSET ?")?;
-            
-            let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
-                .collect::<Result<_, _>>()?;
+            self.records = {
+                let mut stmt = connection.prepare("SELECT * FROM game_records LIMIT ? OFFSET ?")?;
+                
+                let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
+                    .collect::<Result<_, _>>()?;
 
-            records
-        };
+                records
+            };
+
+            self.student_info.lock().unwrap().refresh(&mut connection)?;
+        }
         
         log::debug!("refreshed game records");
 
