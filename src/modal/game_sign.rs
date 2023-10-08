@@ -1,6 +1,8 @@
-use crate::{records::{GameTypeStorage, GameStorage, Storage, InsertableStorage, NewGameRecord}, app::{NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+use std::sync::{Arc, Mutex};
 
-use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
+use crate::{records::{GameTypeStorage, GameStorage, Storage, InsertableStorage, NewGameRecord, StudentInfo}, app::{NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+
+use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length, render_student_number_popup};
 
 #[derive(Debug, Clone)]
 pub struct GameSignModal {
@@ -40,7 +42,7 @@ impl Default for GameSignModal {
 }
 
 impl GameSignModal {
-    pub fn render(&mut self, ctx: &eframe::egui::Context, game_types: &GameTypeStorage, game_records: &mut GameStorage) -> bool {
+    pub fn render(&mut self, ctx: &eframe::egui::Context, game_types: &GameTypeStorage, game_records: &mut GameStorage, student_info: Arc<Mutex<StudentInfo>>) -> bool {
         let mut close_modal = false;
 
         egui::Window::new("Sign Out Game")
@@ -109,11 +111,12 @@ impl GameSignModal {
 
                 ui.add_space(4.0);
 
+                // Student Number
+                let resp = render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
+                render_student_number_popup(ui, student_info, "game_sign_student_number_popup".into(), &resp, &mut self.student_number, &mut self.student_name);
+
                 // Student Name
                 render_modal_text_entry(ui, "Student Name", &self.student_name_error, &mut self.student_name, NAME_MAX_LENGTH);
-
-                // Student Number
-                render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
                 
                 // Notes
                 render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes, NOTES_MAX_LENGTH);

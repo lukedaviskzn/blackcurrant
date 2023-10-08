@@ -1,6 +1,8 @@
-use crate::{records::{ItemTypeStorage, ItemStorage, Storage, InsertableStorage, NewItemRecord}, app::{MAX_QUANTITY, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+use std::sync::{Mutex, Arc};
 
-use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
+use crate::{records::{ItemTypeStorage, ItemStorage, Storage, InsertableStorage, NewItemRecord, StudentInfo}, app::{MAX_QUANTITY, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+
+use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length, render_student_number_popup};
 
 #[derive(Debug, Clone)]
 pub struct ItemSignModal {
@@ -40,7 +42,7 @@ impl Default for ItemSignModal {
 }
 
 impl ItemSignModal {
-    pub fn render(&mut self, ctx: &eframe::egui::Context, item_types: &ItemTypeStorage, item_records: &mut ItemStorage) -> bool {
+    pub fn render(&mut self, ctx: &eframe::egui::Context, item_types: &ItemTypeStorage, item_records: &mut ItemStorage, student_info: Arc<Mutex<StudentInfo>>) -> bool {
         let mut add_record = None;
         let mut close_modal = false;
 
@@ -102,11 +104,12 @@ impl ItemSignModal {
 
                 ui.add_space(4.0);
 
+                // Student Number
+                let resp = render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
+                render_student_number_popup(ui, student_info, "item_sign_student_number_popup".into(), &resp, &mut self.student_number, &mut self.student_name);
+
                 // Student Name
                 render_modal_text_entry(ui, "Student Name", &self.student_name_error, &mut self.student_name, NAME_MAX_LENGTH);
-
-                // Student Number
-                render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
                 
                 // Student Receptionist
                 render_modal_text_entry(ui, "Receptionist", &self.receptionist_error, &mut self.receptionist, NAME_MAX_LENGTH);

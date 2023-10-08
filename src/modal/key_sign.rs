@@ -1,6 +1,8 @@
-use crate::{records::{KeyTypeStorage, KeyStorage, Storage, InsertableStorage, NewKeyRecord}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+use std::sync::{Arc, Mutex};
 
-use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length};
+use crate::{records::{KeyTypeStorage, KeyStorage, Storage, InsertableStorage, NewKeyRecord, StudentInfo}, app::{DATE_TIME_FORMAT, NAME_MAX_LENGTH, STUDENT_NUMBER_LENGTH, NOTES_MAX_LENGTH}};
+
+use super::{render_modal_text_entry, filter_student_number, filter_required, filter_length, render_student_number_popup};
 
 #[derive(Debug, Clone, Default)]
 pub struct KeySignModal {
@@ -17,7 +19,7 @@ pub struct KeySignModal {
 }
 
 impl KeySignModal {
-    pub fn render(&mut self, ctx: &eframe::egui::Context, key_types: &KeyTypeStorage, key_records: &mut KeyStorage) -> bool {
+    pub fn render(&mut self, ctx: &eframe::egui::Context, key_types: &KeyTypeStorage, key_records: &mut KeyStorage, student_info: Arc<Mutex<StudentInfo>>) -> bool {
         let mut add_record = None;
         let mut close_modal = false;
 
@@ -44,11 +46,12 @@ impl KeySignModal {
 
                 ui.add_space(4.0);
 
+                // Student Number                
+                let resp = render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
+                render_student_number_popup(ui, student_info, "key_sign_student_number_popup".into(), &resp, &mut self.student_number, &mut self.student_name);
+
                 // Student Name
                 render_modal_text_entry(ui, "Student Name", &self.student_name_error, &mut self.student_name, NAME_MAX_LENGTH);
-
-                // Student Number
-                render_modal_text_entry(ui, "Student Number", &self.student_number_error, &mut self.student_number, STUDENT_NUMBER_LENGTH);
                 
                 // Notes
                 render_modal_text_entry(ui, "Notes", &self.notes_error, &mut self.notes, NOTES_MAX_LENGTH);

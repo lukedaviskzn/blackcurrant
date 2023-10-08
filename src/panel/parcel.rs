@@ -1,57 +1,45 @@
 use egui_extras::{TableBuilder, Column};
 
-use crate::{records::{Page, GameTypeStorage, GameStorage, PaginatedStorage, NotedStorage}, modals::{GameSignModal, SignInModal}, app::{DATE_TIME_FORMAT, ROW_HEIGHT, COL_MAX_WIDTH, COL_LARGE_INITIAL_WIDTH, COL_SMALL_INITIAL_WIDTH, COL_MIN_WIDTH}};
+use crate::{records::{Page, ParcelStorage, PaginatedStorage, NotedStorage, SignableStorage}, modal::ParcelSignModal, app::{DATE_TIME_FORMAT, ROW_HEIGHT, COL_MAX_WIDTH, COL_MIN_WIDTH, COL_SMALL_INITIAL_WIDTH, COL_LARGE_INITIAL_WIDTH}};
 
 use super::{pagination, render_notes_entry};
 
 #[derive(Debug, Default)]
-pub struct GamePanel {
+pub struct ParcelPanel {
     page: Page,
-
-    game_sign_modal: Option<GameSignModal>,
-    game_sign_in_modal: Option<SignInModal<i64>>,
+    record_confirm: Option<i64>,
+    
+    parcel_sign_modal: Option<ParcelSignModal>,
     
     current_notes: Option<(i64, String)>,
 }
 
-impl GamePanel {
-    pub fn render(&mut self, ctx: &eframe::egui::Context, ui: &mut egui::Ui, game_types: &GameTypeStorage, game_records: &mut GameStorage) {
+impl ParcelPanel {
+    pub fn render(&mut self, ctx: &eframe::egui::Context, ui: &mut egui::Ui, parcel_records: &mut ParcelStorage) {
         ui.horizontal(|ui| {
-            // Sign Out Modal Button
-            if ui.button("Sign Out Game").clicked() {
-                self.game_sign_modal = Some(GameSignModal::default());
+            if ui.button("Sign In Parcel").clicked() {
+                self.parcel_sign_modal = Some(ParcelSignModal::default());
             }
-            
-            // Pagination
+    
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
-                pagination(ui, &mut self.page, game_records.count());
-                game_records.set_page(self.page).expect(&format!("failed to refresh parcel records for page: {:?}", self.page));
+                pagination(ui, &mut self.page, parcel_records.count());
+                parcel_records.set_page(self.page).expect(&format!("failed to refresh parcel records for page: {:?}", self.page));
             });
         });
 
         ui.add_space(8.0);
 
-        // Sign Out Modal
-        if let Some(modal) = &mut self.game_sign_modal {
-            let close_modal = modal.render(ctx, game_types, game_records);
+        if let Some(modal) = &mut self.parcel_sign_modal {
+            let close_modal = modal.render(ctx, parcel_records);
 
             if close_modal {
-                self.game_sign_modal = None;
+                self.parcel_sign_modal = None;
             }
         }
 
-        // Sign In Modal
-        if let Some(modal) = &mut self.game_sign_in_modal {
-            let close_modal = modal.render(ctx, game_records);
-
-            if close_modal {
-                self.game_sign_in_modal = None;
-                
-            }
-        }
-        
+        let mut update_record = None;
         let mut update_notes = None;
-
+        
         egui::ScrollArea::horizontal().show(ui, |ui| {
             TableBuilder::new(ui)
                 .striped(true)
@@ -61,15 +49,9 @@ impl GamePanel {
                 .column(Column::auto().at_most(COL_MAX_WIDTH).resizable(true))
                 .column(Column::initial(COL_LARGE_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
                 .column(Column::initial(COL_SMALL_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
-                .column(Column::auto().at_least(COL_MIN_WIDTH).at_most(COL_MAX_WIDTH).resizable(true))
                 .column(Column::initial(COL_SMALL_INITIAL_WIDTH).at_least(COL_MIN_WIDTH).clip(true).resizable(true))
                 .column(Column::remainder().at_least(COL_MIN_WIDTH).clip(true).resizable(true))
                 .header(ROW_HEIGHT, |mut header| {
-                    header.col(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("Time Out").strong());
-                        });
-                    });
                     header.col(|ui| {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("Time In").strong());
@@ -77,17 +59,17 @@ impl GamePanel {
                     });
                     header.col(|ui| {
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("Game").strong());
+                            ui.label(egui::RichText::new("Time Out").strong());
+                        });
+                    });
+                    header.col(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("Parcel Description").strong());
                         });
                     });
                     header.col(|ui| {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("Student Name").strong());
-                        });
-                    });
-                    header.col(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("Student Number").strong());
                         });
                     });
                     header.col(|ui| {
@@ -102,49 +84,62 @@ impl GamePanel {
                     });
                 })
                 .body(|mut body| {
-                    for record in game_records.get_all() {
+                    for record in parcel_records.get_all() {
                         body.row(ROW_HEIGHT, |mut row| {
-                            // Time Out
+                            // time_in
+                            // time_out
+                            // parcel_desc
+                            // student_name
+                            // receptionist
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(&chrono::DateTime::<chrono::Local>::from(record.time_out).format(DATE_TIME_FORMAT).to_string());
+                                    ui.label(&chrono::DateTime::<chrono::Local>::from(record.time_in).format(DATE_TIME_FORMAT).to_string());
                                 });
                             });
-                            // Time In
                             row.col(|ui| {
-                                ui.horizontal(|ui| {
-                                    if let Some(time_in) = record.time_in {
-                                        ui.label(&chrono::DateTime::<chrono::Local>::from(time_in).format(DATE_TIME_FORMAT).to_string());
-                                    } else if ui.button("Sign In").clicked() {
-                                        self.game_sign_in_modal = Some(SignInModal::new(record.id));
+                                let require_confirmation = if let Some(record_id) = self.record_confirm {
+                                    record_id == record.id
+                                } else {
+                                    false
+                                };
+                                
+                                let response = ui.horizontal(|ui| {
+                                    if let Some(time_out) = record.time_out {
+                                        ui.label(&chrono::DateTime::<chrono::Local>::from(time_out).format(DATE_TIME_FORMAT).to_string());
+                                    } else if require_confirmation {
+                                        if ui.button("Confirm").clicked() {
+                                            update_record = Some(record.id);
+                                            self.record_confirm = None;
+                                        }
+                                        if ui.button("Cancel").clicked() {
+                                            self.record_confirm = None;
+                                        }
+                                    } else {
+                                        if ui.button("Sign Out").clicked() {
+                                            self.record_confirm = Some(record.id);
+                                        }
                                     }
-                                });
+                                }).response;
+
+                                if require_confirmation && response.clicked_elsewhere() {
+                                    self.record_confirm = None;
+                                }
                             });
-                            // Game & Quantity
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(&format!("{} × {}", record.quantity, record.game));
+                                    ui.label(&record.parcel_desc);
                                 });
                             });
-                            // Student Name
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
                                     ui.label(&record.student_name);
                                 });
                             });
-                            // Student Number
                             row.col(|ui| {
                                 ui.horizontal(|ui| {
-                                    ui.label(&record.student_number);
+                                    ui.label(&record.receptionist);
                                 });
                             });
-                            // Receptionist
-                            row.col(|ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(record.receptionist.as_ref().unwrap_or(&String::new()));
-                                });
-                            });
-                            // Notes
                             row.col(|ui| {
                                 let update = render_notes_entry(ui, record.id, &record.notes, &mut self.current_notes);
                                 if update_notes.is_none() {
@@ -156,9 +151,14 @@ impl GamePanel {
                 });
         });
 
+        // Update time down here to avoid mutating while immutably borrowed
+        if let Some(record_id) = update_record {
+            parcel_records.signin(record_id).expect(&format!("failed to update time for parcel record: {record_id}"));
+        }
+
         // Update notes down here to avoid mutating while immutably borrowed
         if let Some((id, notes)) = update_notes {
-            game_records.update_notes(id, &notes).expect(&format!("failed to update notes for game record: {id}"));
+            parcel_records.update_notes(id, &notes).expect(&format!("failed to update notes for parcel record: {id}"));
             log::info!("updated notes for {id} to {notes:?}");
         }
     }
