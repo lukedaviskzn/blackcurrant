@@ -42,13 +42,15 @@ impl StudentInfo {
         };
         
         let mut stmt = conn.prepare("
-            SELECT DISTINCT student_number, student_name FROM (
-                SELECT id, student_number, student_name FROM key_records WHERE time_out > ?
-                UNION
-                SELECT id, student_number, student_name FROM item_records WHERE time_out > ?
-                UNION
-                SELECT id, student_number, student_name FROM game_records WHERE time_out > ?
-            ) ORDER BY student_number ASC, id DESC
+            SELECT student_number, student_name FROM (
+                SELECT student_number, student_name, ROW_NUMBER() OVER(PARTITION BY student_number ORDER BY time_out DESC) rn FROM (
+                    SELECT student_number, student_name, time_out FROM key_records WHERE time_out >= ?
+                    UNION
+                    SELECT student_number, student_name, time_out FROM item_records WHERE time_out >= ?
+                    UNION
+                    SELECT student_number, student_name, time_out FROM game_records WHERE time_out >= ?
+                )
+            ) WHERE rn = 1 ORDER BY student_number
         ")?;
 
         let year_start = self.year_start.to_rfc3339();
@@ -58,7 +60,7 @@ impl StudentInfo {
             number: row.get("student_number")?,
         }))?.collect::<Result<Vec<_>, _>>()?;
 
-        self.students = records.into_iter().unique_by(|r| r.number.clone()).collect();
+        self.students = records;
 
         Ok(())
     }
