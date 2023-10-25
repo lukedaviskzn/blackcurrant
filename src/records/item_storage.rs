@@ -2,19 +2,21 @@ use std::{path::PathBuf, sync::{Arc, Mutex}};
 
 use crate::app::PAGE_SIZE;
 
-use super::{Page, StorageError, PaginatedStorage, InsertableStorage, NotedStorage, ExportableStorage, ItemRecord, NewItemRecord, Summary};
+use super::{Page, StorageError, PaginatedStorage, InsertableStorage, NotedStorage, ExportableStorage, ItemRecord, NewItemRecord, Summary, StudentInfo};
 
 pub struct ItemStorage {
     connection: Arc<Mutex<rusqlite::Connection>>,
+    student_info: Arc<Mutex<StudentInfo>>,
     records: Vec<ItemRecord>,
     page: Page,
     count: i64,
 }
 
 impl ItemStorage {
-    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>) -> Result<ItemStorage, StorageError> {
+    pub fn new(connection: Arc<Mutex<rusqlite::Connection>>, student_info: Arc<Mutex<StudentInfo>>) -> Result<ItemStorage, StorageError> {
         let mut storage = ItemStorage {
             connection,
+            student_info,
             records: vec![],
             page: Page::LastPage,
             count: 0,
@@ -54,16 +56,20 @@ impl PaginatedStorage<ItemRecord, i64> for ItemStorage {
 
         let page = self.page.as_i64(self.count);
         
-        self.records = {
-            let connection = self.connection.lock().unwrap();
-            
-            let mut stmt = connection.prepare("SELECT * FROM item_records LIMIT ? OFFSET ?")?;
-            
-            let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
-                .collect::<Result<_, _>>()?;
+        {
+            let mut connection = self.connection.lock().unwrap();
+        
+            self.records = {
+                let mut stmt = connection.prepare("SELECT * FROM item_records LIMIT ? OFFSET ?")?;
+                
+                let records = stmt.query_map((PAGE_SIZE, page * PAGE_SIZE), |row| Self::parse_row(row))?
+                    .collect::<Result<_, _>>()?;
 
-            records
-        };
+                records
+            };
+        
+            self.student_info.lock().unwrap().refresh(&mut connection)?;
+        }
         
         log::debug!("refreshed item records");
 

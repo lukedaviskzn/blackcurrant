@@ -1,12 +1,12 @@
-pub mod key_panel;
-pub mod parcel_panel;
-pub mod game_panel;
-pub mod item_panel;
+pub mod key;
+pub mod parcel;
+pub mod game;
+pub mod item;
 
-pub use key_panel::*;
-pub use parcel_panel::*;
-pub use game_panel::*;
-pub use item_panel::*;
+pub use key::*;
+pub use parcel::*;
+pub use game::*;
+pub use item::*;
 
 use crate::{records::Page, app::{PAGE_SIZE, NOTES_MAX_LENGTH}};
 

@@ -1,8 +1,6 @@
 use std::{path::PathBuf, thread::JoinHandle, sync::{Arc, Mutex}};
 
-use image::EncodableLayout;
-
-use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage}, modals::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal, SummaryModal}, panels::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
+use crate::{records::{RecordType, KeyTypeStorage, KeyStorage, ParcelStorage, GameStorage, GameTypeStorage, ItemTypeStorage, ItemStorage, PaginatedStorage, StorageError, ExportableStorage, Storage, StudentInfo}, modal::{AlertModal, KeyEntryModal, ExitModal, GameEntryModal, ItemEntryModal, ExportModal, AboutModal, SettingsModal, ConfirmationModal, SummaryModal}, panel::{KeyPanel, ParcelPanel, GamePanel, ItemPanel}};
 
 pub const APP_NAME: &str = "Blackcurrant";
 
@@ -40,6 +38,7 @@ pub struct App {
     current_panel: RecordType,
 
     connection: Arc<Mutex<rusqlite::Connection>>,
+    student_info: Arc<Mutex<StudentInfo>>,
 
     backup_path_handle: Option<JoinHandle<Option<PathBuf>>>,
     restore_path_handle: Option<JoinHandle<Option<PathBuf>>>,
@@ -71,12 +70,11 @@ pub struct App {
     local_restore_confirm_modal: Option<ConfirmationModal>,
     summary_modal: Option<SummaryModal>,
 
-    icon: egui::TextureHandle,
     config: AppConfig,
 }
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext<'_>, icon: image::DynamicImage) -> Self {
+    pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
         let db_dir = dirs::data_dir().expect("no application data directory").join(APP_NAME);
 
         std::fs::create_dir_all(&db_dir).expect("failed to create application data directory");
@@ -91,6 +89,7 @@ impl App {
 
         log::info!("migrations complete");
 
+        let student_info = Arc::new(Mutex::new(StudentInfo::new(&mut connection).unwrap()));
         let connection = Arc::new(Mutex::new(connection));
 
         let app = App {
@@ -101,6 +100,7 @@ impl App {
             export_path_handle: None,
 
             connection: Arc::clone(&connection),
+            student_info: Arc::clone(&student_info),
 
             key_types: KeyTypeStorage::new(Arc::clone(&connection)).expect("failed to initialise key type storage"),
             game_types: GameTypeStorage::new(Arc::clone(&connection)).expect("failed to initialise game type storage"),
@@ -111,10 +111,10 @@ impl App {
             game_panel: GamePanel::default(),
             item_panel: ItemPanel::default(),
 
-            key_records: KeyStorage::new(Arc::clone(&connection)).expect("failed to initialise key record storage"),
+            key_records: KeyStorage::new(Arc::clone(&connection), Arc::clone(&student_info)).expect("failed to initialise key record storage"),
             parcel_records: ParcelStorage::new(Arc::clone(&connection)).expect("failed to initialise parcel record storage"),
-            game_records: GameStorage::new(Arc::clone(&connection)).expect("failed to initialise game record storage"),
-            item_records: ItemStorage::new(Arc::clone(&connection)).expect("failed to initialise item record storage"),
+            game_records: GameStorage::new(Arc::clone(&connection), Arc::clone(&student_info)).expect("failed to initialise game record storage"),
+            item_records: ItemStorage::new(Arc::clone(&connection), Arc::clone(&student_info)).expect("failed to initialise item record storage"),
             
             key_entry_modal: None,
             game_entry_modal: None,
@@ -128,14 +128,6 @@ impl App {
             local_restore_confirm_modal: None,
             summary_modal: None,
 
-            icon: cc.egui_ctx.load_texture(
-                "logo",
-                egui::ColorImage::from_rgba_unmultiplied(
-                    [icon.width() as usize, icon.height() as usize],
-                    icon.as_rgba8().expect("invalid icon format").as_bytes(),
-                ),
-                Default::default(),
-            ),
             config: confy::load(APP_NAME, None).unwrap_or_default(),
         };
         
@@ -145,6 +137,8 @@ impl App {
             dark_mode: true,
             ..Default::default()
         });
+
+        egui_extras::install_image_loaders(&cc.egui_ctx);
 
         app
     }
@@ -450,7 +444,7 @@ impl eframe::App for App {
                 ui.add_space(4.0);
 
                 ui.horizontal(|ui| {
-                    ui.image(&self.icon, (22.0, 22.0));
+                    ui.add(egui::Image::new(egui::include_image!("../icon/icon.png")).max_width(22.0));
                     ui.heading(egui::RichText::new(APP_NAME).color(egui::Color32::WHITE));
                 });
 
@@ -479,12 +473,12 @@ impl eframe::App for App {
                     }
                 });
             });
-        
+
         match self.current_panel {
             RecordType::Key => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.key_panel.render(ctx, ui, &self.key_types, &mut self.key_records);
+                        self.key_panel.render(ctx, ui, &self.key_types, &mut self.key_records, Arc::clone(&self.student_info));
                     });
             },
             RecordType::Parcel => {
@@ -496,13 +490,13 @@ impl eframe::App for App {
             RecordType::Game => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.game_panel.render(ctx, ui, &self.game_types, &mut self.game_records);
+                        self.game_panel.render(ctx, ui, &self.game_types, &mut self.game_records, Arc::clone(&self.student_info));
                     });
             },
             RecordType::Item => {
                 egui::CentralPanel::default()
                     .show(ctx, |ui| {
-                        self.item_panel.render(ctx, ui, &self.item_types, &mut self.item_records);
+                        self.item_panel.render(ctx, ui, &self.item_types, &mut self.item_records, Arc::clone(&self.student_info));
                     });
             },
         };

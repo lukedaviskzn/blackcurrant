@@ -55,7 +55,7 @@ impl PaginatedStorage<ParcelRecord, i64> for ParcelStorage {
         };
 
         let page = self.page.as_i64(self.count);
-        
+
         self.records = {
             let connection = self.connection.lock().unwrap();
             

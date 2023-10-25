@@ -1,6 +1,5 @@
 use std::{fmt::Display, path::PathBuf};
 
-use err_derive::Error;
 use strum::EnumIter;
 
 pub mod models;
@@ -11,6 +10,7 @@ pub mod item_storage;
 pub mod key_type_storage;
 pub mod game_type_storage;
 pub mod item_type_storage;
+pub mod student_info;
 
 pub use models::*;
 pub use key_storage::*;
@@ -20,6 +20,8 @@ pub use item_storage::*;
 pub use key_type_storage::*;
 pub use game_type_storage::*;
 pub use item_type_storage::*;
+pub use student_info::*;
+use thiserror::Error;
 
 use crate::app::PAGE_SIZE;
 
@@ -71,12 +73,12 @@ impl Display for RecordType {
 
 #[derive(Debug, Error)]
 pub enum StorageError {
-    #[error(display = "Database operation failed. {}", _0)]
-    DbError(#[source] rusqlite::Error),
-    #[error(display = "Failed to export database. {}", _0)]
-    ExportCsvError(#[source] csv::Error),
-    #[error(display = "Failed to export database. {}", _0)]
-    ExportIoError(#[source] std::io::Error),
+    #[error("Database operation failed. {0}")]
+    DbError(#[from] rusqlite::Error),
+    #[error("Failed to export database. {0}")]
+    ExportCsvError(#[from] csv::Error),
+    #[error("Failed to export database. {0}")]
+    ExportIoError(#[from] std::io::Error),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

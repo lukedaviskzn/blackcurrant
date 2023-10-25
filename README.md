@@ -9,8 +9,5 @@ Keys, games, and items are limited to a user-defined list. Removing an item from
 Records are permanent and cannot be edited after creation, with the exception of the notes column, and certain fields when 
 signed in/out. No key may be signed out twice at the same time, nor can more games be signed out than are in stock.
 
-Records are stored in a local SQLite DB, thus Blackcurrant can work during loadshedding or internet outage. Automatic 
-online backups are planned but not yet implemented. A manual backup of the DB can be saved as an sqlite file.
-Records can be exported to CSV if needed for external use.
-
-Currently, no authentication system as not needed in original use case. May be implemented in future.
+Records are stored in a local SQLite DB, thus Blackcurrant can work during loadshedding or internet outage.
+Manual backups of the DB can be saved as sqlite files. Records can also be exported to CSV.
